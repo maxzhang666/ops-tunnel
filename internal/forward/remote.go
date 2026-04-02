@@ -108,7 +108,7 @@ func (f *RemoteForwarder) handleConn(remote net.Conn) {
 		f.active.Done()
 	}()
 
-	connectAddr := fmt.Sprintf("%s:%d", f.mapping.Connect.Host, f.mapping.Connect.Port)
+	connectAddr := net.JoinHostPort(f.mapping.Connect.Host, fmt.Sprintf("%d", f.mapping.Connect.Port))
 	local, err := net.DialTimeout("tcp", connectAddr, 10*time.Second)
 	if err != nil {
 		remote.Close()

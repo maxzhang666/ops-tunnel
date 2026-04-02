@@ -30,6 +30,15 @@ func (s *Server) registerRoutes() {
 		r.Delete("/{id}", s.deleteTunnel)
 	})
 
+	// Tunnel control
+	s.router.Post("/api/v1/tunnels/{id}/start", s.startTunnel)
+	s.router.Post("/api/v1/tunnels/{id}/stop", s.stopTunnel)
+	s.router.Post("/api/v1/tunnels/{id}/restart", s.restartTunnel)
+	s.router.Get("/api/v1/tunnels/{id}/status", s.getTunnelStatus)
+
+	// WebSocket
+	s.router.Get("/ws", s.handleWebSocket)
+
 	if s.cfg.UIDir != "" {
 		s.serveSPA(s.cfg.UIDir)
 	}

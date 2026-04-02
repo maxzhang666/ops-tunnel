@@ -134,7 +134,6 @@ func (f *LocalForwarder) Stop(ctx context.Context) error {
 	select {
 	case <-f.done:
 	case <-ctx.Done():
-		return ctx.Err()
 	}
 
 	// Wait for active connections to drain.

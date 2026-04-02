@@ -37,6 +37,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Save on first run to create the config file
+	if err := store.Save(ctx, cfg); err != nil {
+		slog.Error("failed to save initial config", "err", err)
+		os.Exit(1)
+	}
+
+	slog.Info("config loaded",
+		"sshConnections", len(cfg.SSHConnections),
+		"tunnels", len(cfg.Tunnels),
+	)
+
 	srv := api.NewServer(api.ServerConfig{
 		ListenAddr: *listen,
 		UIDir:      *uiDir,

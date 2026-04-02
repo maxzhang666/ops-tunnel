@@ -105,6 +105,33 @@ func TestLocalForwarder_DoubleStop(t *testing.T) {
 	}
 }
 
+func TestLocalForwarder_ActiveConnTracking(t *testing.T) {
+	fwd := NewLocalForwarder(testMapping())
+	err := fwd.Start(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fwd.Stop(context.Background())
+
+	addr := fwd.listener.Addr().String()
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		t.Fatalf("dial local: %v", err)
+	}
+	conn.Close()
+
+	// handleConn hits nil sshClient guard, closes local, increments totalCnt
+	time.Sleep(100 * time.Millisecond)
+
+	st := fwd.Status()
+	if st.TotalConns != 1 {
+		t.Errorf("TotalConns = %d, want 1", st.TotalConns)
+	}
+	if st.ActiveConns != 0 {
+		t.Errorf("ActiveConns = %d, want 0", st.ActiveConns)
+	}
+}
+
 func TestBiCopy(t *testing.T) {
 	localClient, localServer := net.Pipe()
 	remoteClient, remoteServer := net.Pipe()

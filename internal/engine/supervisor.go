@@ -125,6 +125,12 @@ func (s *tunnelSupervisor) Stop(ctx context.Context) error {
 
 	s.setState(StateStopping)
 
+	// Stop forwards in reverse order before closing chain
+	for i := len(s.fwds) - 1; i >= 0; i-- {
+		s.fwds[i].Stop(ctx)
+	}
+	s.fwds = nil
+
 	if s.kaCancel != nil {
 		s.kaCancel()
 	}
@@ -151,13 +157,24 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 	}
 
 	mappings := make([]MappingStatus, len(s.tunnel.Mappings))
-	for i, m := range s.tunnel.Mappings {
-		st := "stopped"
-		listen := fmt.Sprintf("%s:%d", m.Listen.Host, m.Listen.Port)
-		if s.state == StateRunning {
-			st = "listening"
+	if len(s.fwds) > 0 {
+		for i, fwd := range s.fwds {
+			st := fwd.Status()
+			mappings[i] = MappingStatus{
+				MappingID: st.MappingID,
+				State:     st.State,
+				Listen:    st.Listen,
+				Detail:    st.LastError,
+			}
 		}
-		mappings[i] = MappingStatus{MappingID: m.ID, State: st, Listen: listen}
+	} else {
+		for i, m := range s.tunnel.Mappings {
+			mappings[i] = MappingStatus{
+				MappingID: m.ID,
+				State:     "stopped",
+				Listen:    fmt.Sprintf("%s:%d", m.Listen.Host, m.Listen.Port),
+			}
+		}
 	}
 
 	return TunnelStatus{

@@ -93,6 +93,14 @@ func (f *LocalForwarder) handleConn(local net.Conn, sshClient *gossh.Client) {
 		f.active.Done()
 	}()
 
+	if sshClient == nil {
+		local.Close()
+		f.mu.Lock()
+		f.lastErr = "no SSH client"
+		f.mu.Unlock()
+		return
+	}
+
 	connectAddr := fmt.Sprintf("%s:%d", f.mapping.Connect.Host, f.mapping.Connect.Port)
 	remote, err := sshClient.Dial("tcp", connectAddr)
 	if err != nil {

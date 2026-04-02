@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -22,9 +23,14 @@ type tunnelSupervisor struct {
 	since    time.Time
 	lastErr  string
 	chain    *tunnelssh.ChainResult
-	kaCtx    context.Context
-	kaCancel context.CancelFunc
 	fwds     []forward.Forwarder
+
+	loopCtx    context.Context
+	loopCancel context.CancelFunc
+	loopDone   chan struct{}
+
+	restartCount int
+	restartTimes []time.Time
 }
 
 func newSupervisor(t config.Tunnel, conns []config.SSHConnection, bus EventBus, hostKeys tunnelssh.HostKeyStore) *tunnelSupervisor {
@@ -46,109 +52,297 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 		return fmt.Errorf("tunnel %s is already %s", s.tunnel.ID, s.state)
 	}
 
+	s.loopCtx, s.loopCancel = context.WithCancel(context.Background())
+	s.loopDone = make(chan struct{})
+	s.restartCount = 0
+	s.restartTimes = nil
 	s.setState(StateStarting)
 
-	chainCtx, chainCancel := context.WithCancel(context.Background())
-	s.kaCtx = chainCtx
-	s.kaCancel = chainCancel
-
-	chain, err := tunnelssh.BuildChain(ctx, s.conns, s.hostKeys)
-	if err != nil {
-		chainCancel()
-		s.lastErr = err.Error()
-		s.setState(StateError)
-		return fmt.Errorf("build chain: %w", err)
-	}
-
-	s.chain = chain
-
-	// Start forwards for all supported modes
-	if s.tunnel.Mode == config.ModeLocal || s.tunnel.Mode == config.ModeRemote || s.tunnel.Mode == config.ModeDynamic {
-		fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
-		for _, m := range s.tunnel.Mappings {
-			fwd := createForwarder(s.tunnel.Mode, m)
-			if err := fwd.Start(ctx, chain.Last()); err != nil {
-				s.bus.Publish(Event{
-					Type:     EventForwardError,
-					TunnelID: s.tunnel.ID,
-					Level:    "error",
-					Message:  fmt.Sprintf("forward %s failed: %s", m.ID, err),
-					Fields:   map[string]any{"mappingId": m.ID, "error": err.Error()},
-				})
-				for j := len(fwds) - 1; j >= 0; j-- {
-					fwds[j].Stop(ctx)
-				}
-				chain.Close()
-				chainCancel()
-				s.chain = nil
-				s.lastErr = fmt.Sprintf("forward %s: %s", m.ID, err)
-				s.setState(StateError)
-				return fmt.Errorf("start forward %s: %w", m.ID, err)
-			}
-			fwds = append(fwds, fwd)
-			st := fwd.Status()
-			s.bus.Publish(Event{
-				Type:     EventForwardListening,
-				TunnelID: s.tunnel.ID,
-				Level:    "info",
-				Message:  fmt.Sprintf("forward %s listening on %s", m.ID, st.Listen),
-				Fields:   map[string]any{"mappingId": m.ID, "listen": st.Listen},
-			})
-		}
-		s.fwds = fwds
-	}
-
-	s.lastErr = ""
-	s.setState(StateRunning)
-
-	for i, kaErr := range chain.KAErrors {
-		go func(hopIdx int, errCh <-chan error) {
-			select {
-			case <-chainCtx.Done():
-				return
-			case err, ok := <-errCh:
-				if !ok || err == nil {
-					return
-				}
-				s.mu.Lock()
-				if s.state == StateRunning {
-					s.lastErr = fmt.Sprintf("hop %d keepalive failed: %s", hopIdx+1, err)
-					s.setState(StateDegraded)
-				}
-				s.mu.Unlock()
-			}
-		}(i, kaErr)
-	}
-
+	go s.runLoop()
 	return nil
 }
 
 func (s *tunnelSupervisor) Stop(ctx context.Context) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if s.state == StateStopped || s.state == StateStopping {
+		s.mu.Unlock()
 		return nil
 	}
 
 	s.setState(StateStopping)
+	s.loopCancel()
+	s.mu.Unlock()
 
-	// Stop forwards in reverse order before closing chain
-	for i := len(s.fwds) - 1; i >= 0; i-- {
-		s.fwds[i].Stop(ctx)
-	}
-	s.fwds = nil
-
-	if s.kaCancel != nil {
-		s.kaCancel()
-	}
-	if s.chain != nil {
-		s.chain.Close()
-		s.chain = nil
+	select {
+	case <-s.loopDone:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
-	s.setState(StateStopped)
+	s.mu.Lock()
+	if s.state != StateStopped {
+		s.setState(StateStopped)
+	}
+	s.mu.Unlock()
+
 	return nil
+}
+
+func (s *tunnelSupervisor) runLoop() {
+	defer close(s.loopDone)
+
+	backoff := BackoffCalc{
+		MinMs:  s.tunnel.Policy.RestartBackoff.MinMs,
+		MaxMs:  s.tunnel.Policy.RestartBackoff.MaxMs,
+		Factor: s.tunnel.Policy.RestartBackoff.Factor,
+	}
+
+	for {
+		// 1. Build chain
+		chain, err := tunnelssh.BuildChain(s.loopCtx, s.conns, s.hostKeys)
+		if err != nil {
+			if s.loopCtx.Err() != nil {
+				s.mu.Lock()
+				s.setState(StateStopped)
+				s.mu.Unlock()
+				return
+			}
+			s.mu.Lock()
+			s.lastErr = err.Error()
+			s.mu.Unlock()
+
+			slog.Warn("build chain failed", "tunnel", s.tunnel.Name, "err", err)
+
+			if !s.tunnel.Policy.AutoRestart {
+				s.mu.Lock()
+				s.setState(StateError)
+				s.mu.Unlock()
+				return
+			}
+
+			if s.rateLimitExceeded() {
+				s.mu.Lock()
+				s.lastErr = fmt.Sprintf("restart rate limit exceeded (%d/hour)", s.tunnel.Policy.MaxRestartsPerHour)
+				s.setState(StateError)
+				s.mu.Unlock()
+				return
+			}
+
+			if !s.backoffSleep(backoff) {
+				return
+			}
+			continue
+		}
+
+		// 2. Start forwards
+		s.mu.Lock()
+		s.chain = chain
+		s.mu.Unlock()
+
+		fwds, err := s.startForwards(chain)
+		if err != nil {
+			s.mu.Lock()
+			s.lastErr = err.Error()
+			s.chain = nil
+			s.mu.Unlock()
+			chain.Close()
+
+			slog.Warn("start forwards failed", "tunnel", s.tunnel.Name, "err", err)
+
+			if !s.tunnel.Policy.AutoRestart {
+				s.mu.Lock()
+				s.setState(StateError)
+				s.mu.Unlock()
+				return
+			}
+
+			if s.rateLimitExceeded() {
+				s.mu.Lock()
+				s.lastErr = fmt.Sprintf("restart rate limit exceeded (%d/hour)", s.tunnel.Policy.MaxRestartsPerHour)
+				s.setState(StateError)
+				s.mu.Unlock()
+				return
+			}
+
+			if !s.backoffSleep(backoff) {
+				return
+			}
+			continue
+		}
+
+		// 3. Running
+		s.mu.Lock()
+		s.fwds = fwds
+		s.lastErr = ""
+		s.restartCount = 0
+		s.setState(StateRunning)
+		s.mu.Unlock()
+
+		// 4. Wait for error or stop
+		errMsg := s.waitForError(chain)
+
+		// 5. Cleanup
+		s.mu.Lock()
+		if errMsg != "" {
+			s.lastErr = errMsg
+			s.setState(StateDegraded)
+		}
+		s.mu.Unlock()
+
+		s.cleanup()
+
+		s.mu.Lock()
+		s.chain = nil
+		s.fwds = nil
+		s.mu.Unlock()
+
+		if s.loopCtx.Err() != nil {
+			s.mu.Lock()
+			s.setState(StateStopped)
+			s.mu.Unlock()
+			return
+		}
+
+		// 6. Rate limit + backoff
+		if !s.tunnel.Policy.AutoRestart {
+			s.mu.Lock()
+			s.setState(StateError)
+			s.mu.Unlock()
+			return
+		}
+
+		if s.rateLimitExceeded() {
+			s.mu.Lock()
+			s.lastErr = fmt.Sprintf("restart rate limit exceeded (%d/hour)", s.tunnel.Policy.MaxRestartsPerHour)
+			s.setState(StateError)
+			s.mu.Unlock()
+			return
+		}
+
+		if !s.backoffSleep(backoff) {
+			return
+		}
+
+		s.mu.Lock()
+		s.setState(StateStarting)
+		s.mu.Unlock()
+	}
+}
+
+func (s *tunnelSupervisor) startForwards(chain *tunnelssh.ChainResult) ([]forward.Forwarder, error) {
+	if s.tunnel.Mode != config.ModeLocal && s.tunnel.Mode != config.ModeRemote && s.tunnel.Mode != config.ModeDynamic {
+		return nil, nil
+	}
+
+	fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
+	for _, m := range s.tunnel.Mappings {
+		fwd := createForwarder(s.tunnel.Mode, m)
+		if err := fwd.Start(s.loopCtx, chain.Last()); err != nil {
+			s.bus.Publish(Event{
+				Type:     EventForwardError,
+				TunnelID: s.tunnel.ID,
+				Level:    "error",
+				Message:  fmt.Sprintf("forward %s failed: %s", m.ID, err),
+				Fields:   map[string]any{"mappingId": m.ID, "error": err.Error()},
+			})
+			for j := len(fwds) - 1; j >= 0; j-- {
+				fwds[j].Stop(s.loopCtx)
+			}
+			return nil, fmt.Errorf("forward %s: %w", m.ID, err)
+		}
+		fwds = append(fwds, fwd)
+		st := fwd.Status()
+		s.bus.Publish(Event{
+			Type:     EventForwardListening,
+			TunnelID: s.tunnel.ID,
+			Level:    "info",
+			Message:  fmt.Sprintf("forward %s listening on %s", m.ID, st.Listen),
+			Fields:   map[string]any{"mappingId": m.ID, "listen": st.Listen},
+		})
+	}
+	return fwds, nil
+}
+
+func (s *tunnelSupervisor) waitForError(chain *tunnelssh.ChainResult) string {
+	if len(chain.KAErrors) == 0 {
+		<-s.loopCtx.Done()
+		return ""
+	}
+
+	merged := make(chan string, 1)
+	for i, kaErr := range chain.KAErrors {
+		go func(hopIdx int, errCh <-chan error) {
+			select {
+			case <-s.loopCtx.Done():
+			case err, ok := <-errCh:
+				if ok && err != nil {
+					select {
+					case merged <- fmt.Sprintf("hop %d keepalive failed: %s", hopIdx+1, err):
+					default:
+					}
+				}
+			}
+		}(i, kaErr)
+	}
+
+	select {
+	case <-s.loopCtx.Done():
+		return ""
+	case msg := <-merged:
+		return msg
+	}
+}
+
+func (s *tunnelSupervisor) cleanup() {
+	graceful := time.Duration(s.tunnel.Policy.GracefulStopTimeoutMs) * time.Millisecond
+	stopCtx, cancel := context.WithTimeout(context.Background(), graceful)
+	defer cancel()
+
+	s.mu.RLock()
+	fwds := s.fwds
+	chain := s.chain
+	s.mu.RUnlock()
+
+	for i := len(fwds) - 1; i >= 0; i-- {
+		fwds[i].Stop(stopCtx)
+	}
+	if chain != nil {
+		chain.Close()
+	}
+}
+
+func (s *tunnelSupervisor) rateLimitExceeded() bool {
+	now := time.Now()
+	cutoff := now.Add(-time.Hour)
+
+	valid := s.restartTimes[:0]
+	for _, t := range s.restartTimes {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
+	valid = append(valid, now)
+	s.restartTimes = valid
+
+	return len(s.restartTimes) >= s.tunnel.Policy.MaxRestartsPerHour
+}
+
+func (s *tunnelSupervisor) backoffSleep(b BackoffCalc) bool {
+	delay := b.Delay(s.restartCount)
+	s.restartCount++
+
+	slog.Info("supervisor backoff", "tunnel", s.tunnel.Name, "delay", delay, "attempt", s.restartCount)
+
+	select {
+	case <-time.After(delay):
+		return true
+	case <-s.loopCtx.Done():
+		s.mu.Lock()
+		s.setState(StateStopped)
+		s.mu.Unlock()
+		return false
+	}
 }
 
 func (s *tunnelSupervisor) Status() TunnelStatus {

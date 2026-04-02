@@ -62,8 +62,8 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 
 	s.chain = chain
 
-	// Start forwards for local/remote modes
-	if s.tunnel.Mode == config.ModeLocal || s.tunnel.Mode == config.ModeRemote {
+	// Start forwards for all supported modes
+	if s.tunnel.Mode == config.ModeLocal || s.tunnel.Mode == config.ModeRemote || s.tunnel.Mode == config.ModeDynamic {
 		fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
 		for _, m := range s.tunnel.Mappings {
 			fwd := createForwarder(s.tunnel.Mode, m)
@@ -201,6 +201,8 @@ func createForwarder(mode config.TunnelMode, m config.Mapping) forward.Forwarder
 		return forward.NewLocalForwarder(m)
 	case config.ModeRemote:
 		return forward.NewRemoteForwarder(m)
+	case config.ModeDynamic:
+		return forward.NewDynamicForwarder(m)
 	default:
 		return nil
 	}

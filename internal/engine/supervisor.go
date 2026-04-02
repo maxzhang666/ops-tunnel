@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/maxzhang666/ops-tunnel/internal/config"
+	"github.com/maxzhang666/ops-tunnel/internal/forward"
 	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 )
 
@@ -23,6 +24,7 @@ type tunnelSupervisor struct {
 	chain    *tunnelssh.ChainResult
 	kaCtx    context.Context
 	kaCancel context.CancelFunc
+	fwds     []forward.Forwarder
 }
 
 func newSupervisor(t config.Tunnel, conns []config.SSHConnection, bus EventBus, hostKeys tunnelssh.HostKeyStore) *tunnelSupervisor {
@@ -59,6 +61,35 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 	}
 
 	s.chain = chain
+
+	// Start forwards for local mode
+	if s.tunnel.Mode == config.ModeLocal {
+		fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
+		for _, m := range s.tunnel.Mappings {
+			fwd := forward.NewLocalForwarder(m)
+			if err := fwd.Start(ctx, chain.Last()); err != nil {
+				for j := len(fwds) - 1; j >= 0; j-- {
+					fwds[j].Stop(ctx)
+				}
+				chain.Close()
+				chainCancel()
+				s.chain = nil
+				s.lastErr = fmt.Sprintf("forward %s: %s", m.ID, err)
+				s.setState(StateError)
+				return fmt.Errorf("start forward %s: %w", m.ID, err)
+			}
+			fwds = append(fwds, fwd)
+			s.bus.Publish(Event{
+				Type:     EventForwardListening,
+				TunnelID: s.tunnel.ID,
+				Level:    "info",
+				Message:  fmt.Sprintf("forward %s listening on %s:%d", m.ID, m.Listen.Host, m.Listen.Port),
+				Fields:   map[string]any{"mappingId": m.ID, "listen": fmt.Sprintf("%s:%d", m.Listen.Host, m.Listen.Port)},
+			})
+		}
+		s.fwds = fwds
+	}
+
 	s.lastErr = ""
 	s.setState(StateRunning)
 

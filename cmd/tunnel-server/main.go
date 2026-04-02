@@ -12,6 +12,7 @@ import (
 
 	"github.com/maxzhang666/ops-tunnel/internal/api"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
+	"github.com/maxzhang666/ops-tunnel/internal/engine"
 )
 
 func main() {
@@ -48,11 +49,14 @@ func main() {
 		"tunnels", len(cfg.Tunnels),
 	)
 
+	bus := engine.NewEventBus()
+	eng := engine.NewEngine(cfg, bus)
+
 	srv := api.NewServer(api.ServerConfig{
 		ListenAddr: *listen,
 		UIDir:      *uiDir,
 		Token:      *token,
-	}, store, cfg)
+	}, store, cfg, eng)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {
@@ -67,6 +71,9 @@ func main() {
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if err := eng.Shutdown(shutCtx); err != nil {
+		slog.Error("engine shutdown error", "err", err)
+	}
 	if err := srv.Shutdown(shutCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}

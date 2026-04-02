@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/maxzhang666/ops-tunnel/internal/config"
+	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 )
 
 type Engine interface {
@@ -19,17 +20,19 @@ type Engine interface {
 }
 
 type eng struct {
-	cfg  *config.Config
-	bus  EventBus
-	mu   sync.RWMutex
-	sups map[string]*tunnelSupervisor
+	cfg      *config.Config
+	bus      EventBus
+	hostKeys tunnelssh.HostKeyStore
+	mu       sync.RWMutex
+	sups     map[string]*tunnelSupervisor
 }
 
-func NewEngine(cfg *config.Config, bus EventBus) Engine {
+func NewEngine(cfg *config.Config, bus EventBus, hostKeys tunnelssh.HostKeyStore) Engine {
 	return &eng{
-		cfg:  cfg,
-		bus:  bus,
-		sups: make(map[string]*tunnelSupervisor),
+		cfg:      cfg,
+		bus:      bus,
+		hostKeys: hostKeys,
+		sups:     make(map[string]*tunnelSupervisor),
 	}
 }
 
@@ -42,13 +45,35 @@ func (e *eng) findTunnel(id string) (*config.Tunnel, error) {
 	return nil, fmt.Errorf("tunnel '%s' not found", id)
 }
 
-func (e *eng) getOrCreateSupervisor(t *config.Tunnel) *tunnelSupervisor {
-	if sup, ok := e.sups[t.ID]; ok {
-		return sup
+func (e *eng) resolveChain(t *config.Tunnel) ([]config.SSHConnection, error) {
+	conns := make([]config.SSHConnection, 0, len(t.Chain))
+	for _, id := range t.Chain {
+		found := false
+		for _, c := range e.cfg.SSHConnections {
+			if c.ID == id {
+				conns = append(conns, c)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("SSH connection '%s' not found", id)
+		}
 	}
-	sup := newSupervisor(*t, e.bus)
+	return conns, nil
+}
+
+func (e *eng) getOrCreateSupervisor(t *config.Tunnel) (*tunnelSupervisor, error) {
+	if sup, ok := e.sups[t.ID]; ok {
+		return sup, nil
+	}
+	conns, err := e.resolveChain(t)
+	if err != nil {
+		return nil, err
+	}
+	sup := newSupervisor(*t, conns, e.bus, e.hostKeys)
 	e.sups[t.ID] = sup
-	return sup
+	return sup, nil
 }
 
 func (e *eng) StartTunnel(ctx context.Context, id string) error {
@@ -58,7 +83,11 @@ func (e *eng) StartTunnel(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return e.getOrCreateSupervisor(t).Start(ctx)
+	sup, err := e.getOrCreateSupervisor(t)
+	if err != nil {
+		return err
+	}
+	return sup.Start(ctx)
 }
 
 func (e *eng) StopTunnel(ctx context.Context, id string) error {
@@ -68,7 +97,11 @@ func (e *eng) StopTunnel(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return e.getOrCreateSupervisor(t).Stop(ctx)
+	sup, err := e.getOrCreateSupervisor(t)
+	if err != nil {
+		return err
+	}
+	return sup.Stop(ctx)
 }
 
 func (e *eng) RestartTunnel(ctx context.Context, id string) error {
@@ -78,7 +111,10 @@ func (e *eng) RestartTunnel(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	sup := e.getOrCreateSupervisor(t)
+	sup, err := e.getOrCreateSupervisor(t)
+	if err != nil {
+		return err
+	}
 	if err := sup.Stop(ctx); err != nil {
 		return err
 	}

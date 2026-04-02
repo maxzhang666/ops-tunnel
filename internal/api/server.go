@@ -5,34 +5,57 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/maxzhang666/ops-tunnel/internal/config"
 )
 
-type Config struct {
+// ServerConfig holds HTTP server settings.
+type ServerConfig struct {
 	ListenAddr string
 	UIDir      string
 	Token      string
 }
 
+// Server is the HTTP API server.
 type Server struct {
-	cfg    Config
+	cfg    ServerConfig
+	store  config.Store
+	mu     sync.RWMutex
+	data   *config.Config
 	router chi.Router
 	http   *http.Server
 }
 
-func NewServer(cfg Config) *Server {
+// NewServer creates an API server with the given config store.
+func NewServer(cfg ServerConfig, store config.Store, data *config.Config) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	s := &Server{
 		cfg:    cfg,
+		store:  store,
+		data:   data,
 		router: r,
 	}
 	s.registerRoutes()
 	return s
+}
+
+// saveConfig validates and persists the current in-memory config.
+// Caller must hold s.mu write lock.
+func (s *Server) saveConfig(ctx context.Context) (*config.ValidationResult, error) {
+	vr := config.ValidateConfig(s.data)
+	if vr.HasErrors() {
+		return vr, nil
+	}
+	if err := s.store.Save(ctx, s.data); err != nil {
+		return nil, err
+	}
+	return vr, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {

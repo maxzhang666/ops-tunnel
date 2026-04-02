@@ -7,10 +7,28 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func (s *Server) registerRoutes() {
 	s.router.Get("/healthz", s.handleHealthz)
+
+	s.router.Route("/api/v1/ssh-connections", func(r chi.Router) {
+		r.Get("/", s.listSSHConnections)
+		r.Post("/", s.createSSHConnection)
+		r.Get("/{id}", s.getSSHConnection)
+		r.Put("/{id}", s.updateSSHConnection)
+		r.Delete("/{id}", s.deleteSSHConnection)
+	})
+
+	s.router.Route("/api/v1/tunnels", func(r chi.Router) {
+		r.Get("/", s.listTunnels)
+		r.Post("/", s.createTunnel)
+		r.Get("/{id}", s.getTunnel)
+		r.Put("/{id}", s.updateTunnel)
+		r.Delete("/{id}", s.deleteTunnel)
+	})
 
 	if s.cfg.UIDir != "" {
 		s.serveSPA(s.cfg.UIDir)
@@ -40,7 +58,6 @@ func (s *Server) serveSPA(dir string) {
 			return
 		}
 
-		// SPA fallback: serve index.html for non-file routes
 		indexPath := filepath.Join(absDir, "index.html")
 		if _, err := fs.Stat(os.DirFS(absDir), "index.html"); err == nil {
 			http.ServeFile(w, r, indexPath)

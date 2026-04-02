@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/maxzhang666/ops-tunnel/internal/api"
+	"github.com/maxzhang666/ops-tunnel/internal/config"
 )
 
 func main() {
@@ -24,14 +26,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := api.NewServer(api.Config{
-		ListenAddr: *listen,
-		UIDir:      *uiDir,
-		Token:      *token,
-	})
+	store := config.NewFileStore(filepath.Join(*dataDir, "config.json"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	cfg, err := store.Load(ctx)
+	if err != nil {
+		slog.Error("failed to load config", "err", err)
+		os.Exit(1)
+	}
+
+	srv := api.NewServer(api.ServerConfig{
+		ListenAddr: *listen,
+		UIDir:      *uiDir,
+		Token:      *token,
+	}, store, cfg)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {

@@ -1,0 +1,151 @@
+package api
+
+import (
+	"log/slog"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/maxzhang666/ops-tunnel/internal/config"
+	"github.com/rs/xid"
+)
+
+func (s *Server) listTunnels(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	tunnels := make([]config.Tunnel, len(s.data.Tunnels))
+	for i, t := range s.data.Tunnels {
+		tunnels[i] = config.RedactTunnel(t)
+	}
+	s.mu.RUnlock()
+
+	writeJSON(w, http.StatusOK, tunnels)
+}
+
+func (s *Server) createTunnel(w http.ResponseWriter, r *http.Request) {
+	var tun config.Tunnel
+	if err := decodeBody(r, &tun); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		return
+	}
+
+	tun.ID = xid.New().String()
+	for i := range tun.Mappings {
+		if tun.Mappings[i].ID == "" {
+			tun.Mappings[i].ID = xid.New().String()
+		}
+	}
+	config.ApplyTunnelDefaults(&tun)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.data.Tunnels = append(s.data.Tunnels, tun)
+
+	vr, err := s.saveConfig(r.Context())
+	if err != nil {
+		s.data.Tunnels = s.data.Tunnels[:len(s.data.Tunnels)-1]
+		slog.Error("failed to save config", "err", err)
+		writeInternalError(w)
+		return
+	}
+	if vr.HasErrors() {
+		s.data.Tunnels = s.data.Tunnels[:len(s.data.Tunnels)-1]
+		writeValidationError(w, vr.Errors)
+		return
+	}
+
+	writeData(w, http.StatusCreated, config.RedactTunnel(tun), vr.Warnings)
+}
+
+func (s *Server) getTunnel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, t := range s.data.Tunnels {
+		if t.ID == id {
+			writeJSON(w, http.StatusOK, config.RedactTunnel(t))
+			return
+		}
+	}
+	writeNotFound(w, "tunnel", id)
+}
+
+func (s *Server) updateTunnel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var tun config.Tunnel
+	if err := decodeBody(r, &tun); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		return
+	}
+	tun.ID = id
+	for i := range tun.Mappings {
+		if tun.Mappings[i].ID == "" {
+			tun.Mappings[i].ID = xid.New().String()
+		}
+	}
+	config.ApplyTunnelDefaults(&tun)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := -1
+	for i, t := range s.data.Tunnels {
+		if t.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeNotFound(w, "tunnel", id)
+		return
+	}
+
+	old := s.data.Tunnels[idx]
+	s.data.Tunnels[idx] = tun
+
+	vr, err := s.saveConfig(r.Context())
+	if err != nil {
+		s.data.Tunnels[idx] = old
+		slog.Error("failed to save config", "err", err)
+		writeInternalError(w)
+		return
+	}
+	if vr.HasErrors() {
+		s.data.Tunnels[idx] = old
+		writeValidationError(w, vr.Errors)
+		return
+	}
+
+	writeData(w, http.StatusOK, config.RedactTunnel(tun), vr.Warnings)
+}
+
+func (s *Server) deleteTunnel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := -1
+	for i, t := range s.data.Tunnels {
+		if t.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeNotFound(w, "tunnel", id)
+		return
+	}
+
+	s.data.Tunnels = append(s.data.Tunnels[:idx], s.data.Tunnels[idx+1:]...)
+
+	if _, err := s.saveConfig(r.Context()); err != nil {
+		slog.Error("failed to save config", "err", err)
+		writeInternalError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

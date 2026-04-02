@@ -13,6 +13,7 @@ import (
 	"github.com/maxzhang666/ops-tunnel/internal/api"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
+	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 )
 
 func main() {
@@ -50,13 +51,14 @@ func main() {
 	)
 
 	bus := engine.NewEventBus()
-	eng := engine.NewEngine(cfg, bus)
+	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(*dataDir, "known_hosts.json"))
+	eng := engine.NewEngine(cfg, bus, hostKeys)
 
 	srv := api.NewServer(api.ServerConfig{
 		ListenAddr: *listen,
 		UIDir:      *uiDir,
 		Token:      *token,
-	}, store, cfg, eng)
+	}, store, cfg, eng, hostKeys)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {

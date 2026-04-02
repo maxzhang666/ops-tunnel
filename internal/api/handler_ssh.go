@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
+	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 	"github.com/rs/xid"
 )
 
@@ -148,4 +149,37 @@ func (s *Server) deleteSSHConnection(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) testSSHConnection(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	s.mu.RLock()
+	var conn *config.SSHConnection
+	for i, c := range s.data.SSHConnections {
+		if c.ID == id {
+			conn = &s.data.SSHConnections[i]
+			break
+		}
+	}
+	s.mu.RUnlock()
+
+	if conn == nil {
+		writeNotFound(w, "ssh-connection", id)
+		return
+	}
+
+	result := tunnelssh.TestConnection(r.Context(), *conn, s.hostKeys)
+	if result.OK {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":    "ok",
+			"message":   "connected successfully",
+			"latencyMs": result.LatencyMs,
+		})
+	} else {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":  "error",
+			"message": result.Error,
+		})
+	}
 }

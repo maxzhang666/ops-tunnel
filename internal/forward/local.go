@@ -14,7 +14,8 @@ import (
 
 // LocalForwarder implements local (-L) port forwarding.
 type LocalForwarder struct {
-	mapping config.Mapping
+	mapping    config.Mapping
+	listenAddr string // actual bound address after Start
 
 	mu       sync.RWMutex
 	listener net.Listener
@@ -39,10 +40,14 @@ func NewLocalForwarder(m config.Mapping) *LocalForwarder {
 func (f *LocalForwarder) Status() Status {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
+	listen := f.listenAddr
+	if listen == "" {
+		listen = fmt.Sprintf("%s:%d", f.mapping.Listen.Host, f.mapping.Listen.Port)
+	}
 	return Status{
 		MappingID:   f.mapping.ID,
 		State:       f.state,
-		Listen:      fmt.Sprintf("%s:%d", f.mapping.Listen.Host, f.mapping.Listen.Port),
+		Listen:      listen,
 		ActiveConns: int(f.activeCnt.Load()),
 		TotalConns:  f.totalCnt.Load(),
 		LastError:   f.lastErr,
@@ -65,6 +70,7 @@ func (f *LocalForwarder) Start(ctx context.Context, sshClient *gossh.Client) err
 	}
 
 	f.listener = ln
+	f.listenAddr = ln.Addr().String()
 	f.state = "listening"
 	f.lastErr = ""
 	f.done = make(chan struct{})

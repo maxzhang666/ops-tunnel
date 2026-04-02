@@ -72,6 +72,7 @@ func (b *eventBus) Subscribe(bufSize int) (<-chan Event, func()) {
 	cancel := func() {
 		b.mu.Lock()
 		delete(b.subs, sub)
+		close(sub.ch)
 		b.mu.Unlock()
 		for range sub.ch {
 		}

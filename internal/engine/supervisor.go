@@ -62,11 +62,11 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 
 	s.chain = chain
 
-	// Start forwards for local mode
-	if s.tunnel.Mode == config.ModeLocal {
+	// Start forwards for local/remote modes
+	if s.tunnel.Mode == config.ModeLocal || s.tunnel.Mode == config.ModeRemote {
 		fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
 		for _, m := range s.tunnel.Mappings {
-			fwd := forward.NewLocalForwarder(m)
+			fwd := createForwarder(s.tunnel.Mode, m)
 			if err := fwd.Start(ctx, chain.Last()); err != nil {
 				s.bus.Publish(Event{
 					Type:     EventForwardError,
@@ -192,6 +192,17 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 		Chain:     chain,
 		Mappings:  mappings,
 		LastError: s.lastErr,
+	}
+}
+
+func createForwarder(mode config.TunnelMode, m config.Mapping) forward.Forwarder {
+	switch mode {
+	case config.ModeLocal:
+		return forward.NewLocalForwarder(m)
+	case config.ModeRemote:
+		return forward.NewRemoteForwarder(m)
+	default:
+		return nil
 	}
 }
 

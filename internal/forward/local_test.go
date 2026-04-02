@@ -83,6 +83,28 @@ func TestLocalForwarder_PortInUse(t *testing.T) {
 	}
 }
 
+func TestLocalForwarder_StopWhenStopped(t *testing.T) {
+	fwd := NewLocalForwarder(testMapping())
+	err := fwd.Stop(context.Background())
+	if err != nil {
+		t.Fatalf("Stop on stopped forwarder should be no-op, got: %v", err)
+	}
+}
+
+func TestLocalForwarder_DoubleStop(t *testing.T) {
+	fwd := NewLocalForwarder(testMapping())
+	err := fwd.Start(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fwd.Stop(context.Background()); err != nil {
+		t.Fatalf("first stop: %v", err)
+	}
+	if err := fwd.Stop(context.Background()); err != nil {
+		t.Fatalf("second stop should be no-op: %v", err)
+	}
+}
+
 func TestBiCopy(t *testing.T) {
 	localClient, localServer := net.Pipe()
 	remoteClient, remoteServer := net.Pipe()

@@ -1,0 +1,297 @@
+package forward
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/maxzhang666/ops-tunnel/internal/config"
+	gossh "golang.org/x/crypto/ssh"
+)
+
+// DynamicForwarder implements dynamic (-D) SOCKS5 port forwarding.
+type DynamicForwarder struct {
+	mapping    config.Mapping
+	acl        *ACL
+	listenAddr string
+
+	mu        sync.RWMutex
+	listener  net.Listener
+	state     string // "stopped" | "listening" | "error"
+	lastErr   string
+	done      chan struct{}
+	sshClient *gossh.Client
+
+	active    sync.WaitGroup
+	activeCnt atomic.Int32
+	totalCnt  atomic.Int64
+}
+
+func NewDynamicForwarder(m config.Mapping) *DynamicForwarder {
+	return &DynamicForwarder{
+		mapping: m,
+		state:   "stopped",
+	}
+}
+
+func (f *DynamicForwarder) Status() Status {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	listen := f.listenAddr
+	if listen == "" {
+		listen = fmt.Sprintf("%s:%d", f.mapping.Listen.Host, f.mapping.Listen.Port)
+	}
+	return Status{
+		MappingID:   f.mapping.ID,
+		State:       f.state,
+		Listen:      listen,
+		ActiveConns: int(f.activeCnt.Load()),
+		TotalConns:  f.totalCnt.Load(),
+		LastError:   f.lastErr,
+	}
+}
+
+func (f *DynamicForwarder) Start(ctx context.Context, sshClient *gossh.Client) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.state == "listening" {
+		return fmt.Errorf("already listening")
+	}
+
+	var allowCIDRs, denyCIDRs []string
+	if f.mapping.Socks5 != nil {
+		allowCIDRs = f.mapping.Socks5.AllowCIDRs
+		denyCIDRs = f.mapping.Socks5.DenyCIDRs
+	}
+	acl, err := NewACL(allowCIDRs, denyCIDRs)
+	if err != nil {
+		return fmt.Errorf("build ACL: %w", err)
+	}
+	f.acl = acl
+
+	addr := fmt.Sprintf("%s:%d", f.mapping.Listen.Host, f.mapping.Listen.Port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", addr, err)
+	}
+
+	f.listener = ln
+	f.listenAddr = ln.Addr().String()
+	f.sshClient = sshClient
+	f.state = "listening"
+	f.lastErr = ""
+	f.done = make(chan struct{})
+
+	go f.acceptLoop()
+	return nil
+}
+
+func (f *DynamicForwarder) acceptLoop() {
+	defer close(f.done)
+	for {
+		conn, err := f.listener.Accept()
+		if err != nil {
+			return
+		}
+		f.active.Add(1)
+		f.activeCnt.Add(1)
+		go f.handleConn(conn)
+	}
+}
+
+func (f *DynamicForwarder) handleConn(conn net.Conn) {
+	defer func() {
+		f.activeCnt.Add(-1)
+		f.totalCnt.Add(1)
+		f.active.Done()
+	}()
+
+	if err := f.negotiate(conn); err != nil {
+		slog.Debug("socks5 negotiate failed", "err", err)
+		conn.Close()
+		return
+	}
+
+	req, err := readRequest(conn)
+	if err != nil {
+		slog.Debug("socks5 read request failed", "err", err)
+		conn.Close()
+		return
+	}
+
+	switch req.Cmd {
+	case cmdConnect:
+		f.handleConnect(conn, req)
+	case cmdBind:
+		f.handleBind(conn, req)
+	default:
+		writeReply(conn, RepCmdNotSupported, nil)
+		conn.Close()
+	}
+}
+
+func (f *DynamicForwarder) negotiate(conn net.Conn) error {
+	methods, err := readMethodSelection(conn)
+	if err != nil {
+		return err
+	}
+
+	requiredMethod := byte(authNone)
+	if f.mapping.Socks5 != nil && f.mapping.Socks5.Auth == config.Socks5UserPass {
+		requiredMethod = authUserPass
+	}
+
+	offered := false
+	for _, m := range methods {
+		if m == requiredMethod {
+			offered = true
+			break
+		}
+	}
+	if !offered {
+		writeMethodChoice(conn, authNoAccept)
+		return fmt.Errorf("required auth method %d not offered", requiredMethod)
+	}
+
+	writeMethodChoice(conn, requiredMethod)
+
+	if requiredMethod == authUserPass {
+		user, pass, err := readUsernamePassword(conn)
+		if err != nil {
+			return fmt.Errorf("read userpass: %w", err)
+		}
+		if user != f.mapping.Socks5.Username || pass != f.mapping.Socks5.Password {
+			writeAuthResult(conn, false)
+			return fmt.Errorf("auth failed for user %q", user)
+		}
+		writeAuthResult(conn, true)
+	}
+
+	return nil
+}
+
+func (f *DynamicForwarder) handleConnect(conn net.Conn, req *Request) {
+	if req.AddrType == atypIPv4 || req.AddrType == atypIPv6 {
+		ip := net.ParseIP(req.Addr)
+		if ip != nil && !f.acl.Check(ip) {
+			writeReply(conn, RepNotAllowed, nil)
+			conn.Close()
+			f.mu.Lock()
+			f.lastErr = fmt.Sprintf("ACL denied %s", req.Addr)
+			f.mu.Unlock()
+			return
+		}
+	}
+
+	if f.sshClient == nil {
+		writeReply(conn, RepGeneralFailure, nil)
+		conn.Close()
+		f.mu.Lock()
+		f.lastErr = "no SSH client"
+		f.mu.Unlock()
+		return
+	}
+
+	remote, err := f.sshClient.Dial("tcp", req.Target())
+	if err != nil {
+		writeReply(conn, RepHostUnreachable, nil)
+		conn.Close()
+		f.mu.Lock()
+		f.lastErr = fmt.Sprintf("dial %s: %s", req.Target(), err)
+		f.mu.Unlock()
+		return
+	}
+
+	writeReply(conn, RepSuccess, remote.RemoteAddr())
+	biCopy(conn, remote)
+}
+
+func (f *DynamicForwarder) handleBind(conn net.Conn, req *Request) {
+	if f.sshClient == nil {
+		writeReply(conn, RepGeneralFailure, nil)
+		conn.Close()
+		return
+	}
+
+	ln, err := f.sshClient.Listen("tcp", "0.0.0.0:0")
+	if err != nil {
+		writeReply(conn, RepGeneralFailure, nil)
+		conn.Close()
+		f.mu.Lock()
+		f.lastErr = fmt.Sprintf("remote listen: %s", err)
+		f.mu.Unlock()
+		return
+	}
+
+	writeReply(conn, RepSuccess, ln.Addr())
+
+	type acceptResult struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan acceptResult, 1)
+	go func() {
+		c, err := ln.Accept()
+		ch <- acceptResult{c, err}
+	}()
+
+	var inbound net.Conn
+	select {
+	case res := <-ch:
+		ln.Close()
+		if res.err != nil {
+			writeReply(conn, RepGeneralFailure, nil)
+			conn.Close()
+			return
+		}
+		inbound = res.conn
+	case <-time.After(60 * time.Second):
+		ln.Close()
+		writeReply(conn, RepGeneralFailure, nil)
+		conn.Close()
+		return
+	}
+
+	writeReply(conn, RepSuccess, inbound.RemoteAddr())
+	biCopy(conn, inbound)
+}
+
+func (f *DynamicForwarder) Stop(ctx context.Context) error {
+	f.mu.Lock()
+
+	if f.state != "listening" {
+		f.mu.Unlock()
+		return nil
+	}
+
+	f.listener.Close()
+	f.mu.Unlock()
+
+	select {
+	case <-f.done:
+	case <-ctx.Done():
+	}
+
+	waitDone := make(chan struct{})
+	go func() {
+		f.active.Wait()
+		close(waitDone)
+	}()
+
+	select {
+	case <-waitDone:
+	case <-ctx.Done():
+	}
+
+	f.mu.Lock()
+	f.state = "stopped"
+	f.mu.Unlock()
+	return nil
+}
+
+var _ Forwarder = (*DynamicForwarder)(nil)

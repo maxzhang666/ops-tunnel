@@ -113,7 +113,7 @@ func TestLocalForwarder_ActiveConnTracking(t *testing.T) {
 	}
 	defer fwd.Stop(context.Background())
 
-	addr := fwd.listener.Addr().String()
+	addr := fwd.Status().Listen
 	conn, err := net.DialTimeout("tcp", addr, time.Second)
 	if err != nil {
 		t.Fatalf("dial local: %v", err)

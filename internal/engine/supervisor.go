@@ -68,6 +68,13 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 		for _, m := range s.tunnel.Mappings {
 			fwd := forward.NewLocalForwarder(m)
 			if err := fwd.Start(ctx, chain.Last()); err != nil {
+				s.bus.Publish(Event{
+					Type:     EventForwardError,
+					TunnelID: s.tunnel.ID,
+					Level:    "error",
+					Message:  fmt.Sprintf("forward %s failed: %s", m.ID, err),
+					Fields:   map[string]any{"mappingId": m.ID, "error": err.Error()},
+				})
 				for j := len(fwds) - 1; j >= 0; j-- {
 					fwds[j].Stop(ctx)
 				}
@@ -79,12 +86,13 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 				return fmt.Errorf("start forward %s: %w", m.ID, err)
 			}
 			fwds = append(fwds, fwd)
+			st := fwd.Status()
 			s.bus.Publish(Event{
 				Type:     EventForwardListening,
 				TunnelID: s.tunnel.ID,
 				Level:    "info",
-				Message:  fmt.Sprintf("forward %s listening on %s:%d", m.ID, m.Listen.Host, m.Listen.Port),
-				Fields:   map[string]any{"mappingId": m.ID, "listen": fmt.Sprintf("%s:%d", m.Listen.Host, m.Listen.Port)},
+				Message:  fmt.Sprintf("forward %s listening on %s", m.ID, st.Listen),
+				Fields:   map[string]any{"mappingId": m.ID, "listen": st.Listen},
 			})
 		}
 		s.fwds = fwds

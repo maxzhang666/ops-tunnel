@@ -6,3 +6,5 @@ ui/dist/
 *.exe
 *.test
 *.out
+docs
+.claude

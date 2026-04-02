@@ -25,50 +25,74 @@ func testConfig() *config.Config {
 					{ID: "m1", Listen: config.Endpoint{Host: "127.0.0.1", Port: 15432}, Connect: config.Endpoint{Host: "127.0.0.1", Port: 5432}},
 				},
 				Policy: config.Policy{
-					RestartBackoff:     config.RestartBackoff{MinMs: 500, MaxMs: 15000, Factor: 1.7},
-					MaxRestartsPerHour: 60,
+					AutoRestart:           false,
+					RestartBackoff:        config.RestartBackoff{MinMs: 100, MaxMs: 1000, Factor: 1.5},
+					MaxRestartsPerHour:    60,
+					GracefulStopTimeoutMs: 1000,
 				},
 			},
 		},
 	}
 }
 
-func TestEngine_StartStop(t *testing.T) {
+func waitForState(t *testing.T, eng Engine, id string, want TunnelState, timeout time.Duration) {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		st, ok := eng.GetStatus(id)
+		if !ok {
+			t.Fatalf("tunnel %s not found", id)
+		}
+		if st.State == want {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("timeout waiting for state %s, got %s", want, st.State)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+func TestEngine_StartAsync(t *testing.T) {
 	bus := NewEventBus()
 	eng := NewEngine(testConfig(), bus, tunnelssh.NewNoopHostKeyStore())
-	ctx := context.Background()
 
-	// Start will fail because no real SSH server exists
-	err := eng.StartTunnel(ctx, "tun-1")
-	if err == nil {
-		t.Log("Start succeeded (unexpected in test without real SSH server)")
+	err := eng.StartTunnel(context.Background(), "tun-1")
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
 	}
 
-	// Status should be error (failed to connect)
-	st, ok := eng.GetStatus("tun-1")
-	if !ok {
-		t.Fatal("tunnel status not found")
+	waitForState(t, eng, "tun-1", StateError, 5*time.Second)
+}
+
+func TestEngine_StopFromError(t *testing.T) {
+	bus := NewEventBus()
+	eng := NewEngine(testConfig(), bus, tunnelssh.NewNoopHostKeyStore())
+
+	eng.StartTunnel(context.Background(), "tun-1")
+	waitForState(t, eng, "tun-1", StateError, 5*time.Second)
+
+	err := eng.StopTunnel(context.Background(), "tun-1")
+	if err != nil {
+		t.Fatalf("Stop: %v", err)
 	}
-	if st.State != StateError && st.State != StateRunning {
-		// Either error (expected) or running (if somehow connected)
-		t.Logf("State = %s (expected error without real SSH)", st.State)
+
+	st, _ := eng.GetStatus("tun-1")
+	if st.State != StateStopped {
+		t.Errorf("State = %s, want stopped", st.State)
 	}
 }
 
 func TestEngine_Restart(t *testing.T) {
 	bus := NewEventBus()
 	eng := NewEngine(testConfig(), bus, tunnelssh.NewNoopHostKeyStore())
-	ctx := context.Background()
 
-	eng.StartTunnel(ctx, "tun-1")
-	// RestartTunnel: Stop (from error state is a no-op essentially) then Start again
-	// Both Start calls will fail due to no real SSH — that is expected
-	eng.RestartTunnel(ctx, "tun-1")
+	eng.StartTunnel(context.Background(), "tun-1")
+	waitForState(t, eng, "tun-1", StateError, 5*time.Second)
 
-	st, _ := eng.GetStatus("tun-1")
-	if st.State != StateError && st.State != StateRunning && st.State != StateStopped {
-		t.Logf("State = %s after restart (expected error without real SSH)", st.State)
-	}
+	eng.RestartTunnel(context.Background(), "tun-1")
+	waitForState(t, eng, "tun-1", StateError, 5*time.Second)
 }
 
 func TestEngine_StartNonExistent(t *testing.T) {
@@ -88,9 +112,8 @@ func TestEngine_EventsReceived(t *testing.T) {
 
 	eng.StartTunnel(context.Background(), "tun-1")
 
-	// Expect at least 2 events: starting → error (or starting → running)
 	received := 0
-	timeout := time.After(time.Second)
+	timeout := time.After(5 * time.Second)
 	for received < 2 {
 		select {
 		case <-ch:
@@ -116,13 +139,59 @@ func TestEngine_ListStatus(t *testing.T) {
 func TestEngine_Shutdown(t *testing.T) {
 	bus := NewEventBus()
 	eng := NewEngine(testConfig(), bus, tunnelssh.NewNoopHostKeyStore())
-	ctx := context.Background()
 
-	eng.StartTunnel(ctx, "tun-1")
-	eng.Shutdown(ctx)
+	eng.StartTunnel(context.Background(), "tun-1")
+	time.Sleep(100 * time.Millisecond)
+
+	eng.Shutdown(context.Background())
 
 	st, _ := eng.GetStatus("tun-1")
 	if st.State != StateStopped {
 		t.Errorf("State = %s, want stopped after shutdown", st.State)
+	}
+}
+
+func TestEngine_AutoRestartBackoff(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tunnels[0].Policy.AutoRestart = true
+	cfg.Tunnels[0].Policy.MaxRestartsPerHour = 3
+	cfg.Tunnels[0].Policy.RestartBackoff.MinMs = 50
+	cfg.Tunnels[0].Policy.RestartBackoff.MaxMs = 200
+
+	bus := NewEventBus()
+	eng := NewEngine(cfg, bus, tunnelssh.NewNoopHostKeyStore())
+
+	eng.StartTunnel(context.Background(), "tun-1")
+	waitForState(t, eng, "tun-1", StateError, 10*time.Second)
+
+	st, _ := eng.GetStatus("tun-1")
+	if st.LastError == "" {
+		t.Error("expected lastErr to mention rate limit")
+	}
+}
+
+func TestEngine_StopDuringBackoff(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tunnels[0].Policy.AutoRestart = true
+	cfg.Tunnels[0].Policy.RestartBackoff.MinMs = 5000
+	cfg.Tunnels[0].Policy.RestartBackoff.MaxMs = 10000
+
+	bus := NewEventBus()
+	eng := NewEngine(cfg, bus, tunnelssh.NewNoopHostKeyStore())
+
+	eng.StartTunnel(context.Background(), "tun-1")
+	time.Sleep(500 * time.Millisecond)
+
+	start := time.Now()
+	eng.StopTunnel(context.Background(), "tun-1")
+	elapsed := time.Since(start)
+
+	if elapsed > 2*time.Second {
+		t.Errorf("Stop took %v, expected near-instant", elapsed)
+	}
+
+	st, _ := eng.GetStatus("tun-1")
+	if st.State != StateStopped {
+		t.Errorf("State = %s, want stopped", st.State)
 	}
 }

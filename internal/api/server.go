@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
+	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 )
 
 // ServerConfig holds HTTP server settings.
@@ -22,27 +23,29 @@ type ServerConfig struct {
 
 // Server is the HTTP API server.
 type Server struct {
-	cfg    ServerConfig
-	store  config.Store
-	eng    engine.Engine
-	mu     sync.RWMutex
-	data   *config.Config
-	router chi.Router
-	http   *http.Server
+	cfg      ServerConfig
+	store    config.Store
+	eng      engine.Engine
+	hostKeys tunnelssh.HostKeyStore
+	mu       sync.RWMutex
+	data     *config.Config
+	router   chi.Router
+	http     *http.Server
 }
 
 // NewServer creates an API server with the given config store.
-func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng engine.Engine) *Server {
+func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng engine.Engine, hostKeys tunnelssh.HostKeyStore) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	s := &Server{
-		cfg:    cfg,
-		store:  store,
-		eng:    eng,
-		data:   data,
-		router: r,
+		cfg:      cfg,
+		store:    store,
+		eng:      eng,
+		hostKeys: hostKeys,
+		data:     data,
+		router:   r,
 	}
 	s.registerRoutes()
 	return s

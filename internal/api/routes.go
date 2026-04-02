@@ -20,6 +20,7 @@ func (s *Server) registerRoutes() {
 		r.Get("/{id}", s.getSSHConnection)
 		r.Put("/{id}", s.updateSSHConnection)
 		r.Delete("/{id}", s.deleteSSHConnection)
+		r.Post("/{id}/test", s.testSSHConnection)
 	})
 
 	s.router.Route("/api/v1/tunnels", func(r chi.Router) {

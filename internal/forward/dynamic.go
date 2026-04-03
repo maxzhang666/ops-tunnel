@@ -3,7 +3,6 @@ package forward
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -18,6 +17,7 @@ type DynamicForwarder struct {
 	mapping    config.Mapping
 	acl        *ACL
 	listenAddr string
+	logFn      LogFunc
 
 	mu        sync.RWMutex
 	listener  net.Listener
@@ -29,6 +29,14 @@ type DynamicForwarder struct {
 	active    sync.WaitGroup
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
+}
+
+func (f *DynamicForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
+
+func (f *DynamicForwarder) log(level, msg string) {
+	if f.logFn != nil {
+		f.logFn(level, msg)
+	}
 }
 
 func NewDynamicForwarder(m config.Mapping) *DynamicForwarder {
@@ -87,6 +95,7 @@ func (f *DynamicForwarder) Start(ctx context.Context, sshClient *gossh.Client) e
 	f.lastErr = ""
 	f.done = make(chan struct{})
 
+	f.log("info", fmt.Sprintf("SOCKS5 listening on %s", f.listenAddr))
 	go f.acceptLoop()
 	return nil
 }
@@ -112,14 +121,14 @@ func (f *DynamicForwarder) handleConn(conn net.Conn) {
 	}()
 
 	if err := f.negotiate(conn); err != nil {
-		slog.Debug("socks5 negotiate failed", "err", err)
+		f.log("warn", fmt.Sprintf("SOCKS5 handshake failed from %s: %s", conn.RemoteAddr(), err))
 		conn.Close()
 		return
 	}
 
 	req, err := readRequest(conn)
 	if err != nil {
-		slog.Debug("socks5 read request failed", "err", err)
+		f.log("warn", fmt.Sprintf("SOCKS5 request read failed from %s: %s", conn.RemoteAddr(), err))
 		conn.Close()
 		return
 	}
@@ -194,16 +203,22 @@ func (f *DynamicForwarder) handleConnect(conn net.Conn, req *Request) {
 		f.mu.Lock()
 		f.lastErr = "no SSH client"
 		f.mu.Unlock()
+		f.log("error", "CONNECT failed: no SSH client")
 		return
 	}
 
-	remote, err := f.sshClient.Dial("tcp", req.Target())
+	target := req.Target()
+	f.log("info", fmt.Sprintf("CONNECT %s", target))
+
+	remote, err := f.sshClient.Dial("tcp", target)
 	if err != nil {
 		writeReply(conn, RepHostUnreachable, nil)
 		conn.Close()
+		errMsg := fmt.Sprintf("dial %s: %s", target, err)
 		f.mu.Lock()
-		f.lastErr = fmt.Sprintf("dial %s: %s", req.Target(), err)
+		f.lastErr = errMsg
 		f.mu.Unlock()
+		f.log("error", fmt.Sprintf("CONNECT %s failed: %s", target, err))
 		return
 	}
 

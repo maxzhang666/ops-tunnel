@@ -253,6 +253,14 @@ func (s *tunnelSupervisor) startForwards(chain *tunnelssh.ChainResult) ([]forwar
 	fwds := make([]forward.Forwarder, 0, len(s.tunnel.Mappings))
 	for _, m := range s.tunnel.Mappings {
 		fwd := createForwarder(s.tunnel.Mode, m)
+		fwd.SetLogger(func(level, message string) {
+			s.bus.Publish(Event{
+				Type:     EventTunnelLog,
+				TunnelID: s.tunnel.ID,
+				Level:    level,
+				Message:  message,
+			})
+		})
 		if err := fwd.Start(s.loopCtx, chain.Last()); err != nil {
 			s.bus.Publish(Event{
 				Type:     EventForwardError,

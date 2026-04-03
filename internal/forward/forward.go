@@ -6,11 +6,15 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// LogFunc is a callback for forwarder log messages.
+type LogFunc func(level, message string)
+
 // Forwarder manages a single port forwarding for one mapping.
 type Forwarder interface {
 	Start(ctx context.Context, sshClient *gossh.Client) error
 	Stop(ctx context.Context) error
 	Status() Status
+	SetLogger(LogFunc)
 }
 
 // Status reports the current state of a forwarder.

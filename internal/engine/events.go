@@ -36,14 +36,18 @@ type subscriber struct {
 	ch chan Event
 }
 
+const recentEventsCap = 200
+
 type eventBus struct {
-	mu   sync.RWMutex
-	subs map[*subscriber]struct{}
+	mu     sync.RWMutex
+	subs   map[*subscriber]struct{}
+	recent []Event
 }
 
 func NewEventBus() EventBus {
 	return &eventBus{
-		subs: make(map[*subscriber]struct{}),
+		subs:   make(map[*subscriber]struct{}),
+		recent: make([]Event, 0, recentEventsCap),
 	}
 }
 
@@ -51,22 +55,30 @@ func (b *eventBus) Publish(e Event) {
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
 	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	if len(b.recent) >= recentEventsCap {
+		b.recent = b.recent[1:]
+	}
+	b.recent = append(b.recent, e)
 	for sub := range b.subs {
 		select {
 		case sub.ch <- e:
 		default:
 		}
 	}
+	b.mu.Unlock()
 }
 
+// Subscribe returns a channel that receives new events, prefilled with recent history.
 func (b *eventBus) Subscribe(bufSize int) (<-chan Event, func()) {
 	if bufSize <= 0 {
 		bufSize = 64
 	}
-	sub := &subscriber{ch: make(chan Event, bufSize)}
+	sub := &subscriber{ch: make(chan Event, bufSize+recentEventsCap)}
 	b.mu.Lock()
+	for _, e := range b.recent {
+		sub.ch <- e
+	}
 	b.subs[sub] = struct{}{}
 	b.mu.Unlock()
 

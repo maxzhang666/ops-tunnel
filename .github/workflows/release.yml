@@ -36,17 +36,59 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p')
+          RANGE="${PREV_TAG:+${PREV_TAG}..HEAD}"
+          RANGE="${RANGE:-HEAD}"
+
+          declare -a FEATS FIXES
+          while IFS= read -r msg; do
+            [[ -z "$msg" ]] && continue
+            if [[ "$msg" =~ ^feat(\(.+\))?:\ (.+) ]]; then
+              FEATS+=("${BASH_REMATCH[2]}")
+            elif [[ "$msg" =~ ^fix(\(.+\))?:\ (.+) ]]; then
+              FIXES+=("${BASH_REMATCH[2]}")
+            fi
+          done <<< "$(git log --pretty=format:'%s' "$RANGE")"
+
+          BODY=""
+          if (( ${#FEATS[@]} )); then
+            BODY+=$'## Features\n'
+            for m in "${FEATS[@]}"; do BODY+="- $m"$'\n'; done
+            BODY+=$'\n'
+          fi
+          if (( ${#FIXES[@]} )); then
+            BODY+=$'## Fixes\n'
+            for m in "${FIXES[@]}"; do BODY+="- $m"$'\n'; done
+            BODY+=$'\n'
+          fi
+          if [[ -z "$BODY" ]]; then
+            BODY=$'No notable changes.\n'
+          fi
+
+          {
+            echo "body<<RELEASE_EOF"
+            printf '%s' "$BODY"
+            echo ""
+            echo "RELEASE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          generate_release_notes: true
           name: v${{ steps.version.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
 
   # ─── Job 2: Build desktop (matrix) ────────────────────────
   build-desktop:

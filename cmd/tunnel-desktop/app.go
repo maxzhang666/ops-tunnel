@@ -11,22 +11,26 @@ import (
 
 // App holds the Wails application state.
 type App struct {
-	ctx    context.Context
-	config *config.Config
-	store  config.Store
-	eng    engine.Engine
+	ctx     context.Context
+	config  *config.Config
+	store   config.Store
+	eng     engine.Engine
+	bus     engine.EventBus
+	trayEnd func()
 }
 
-func NewApp(cfg *config.Config, store config.Store, eng engine.Engine) *App {
+func NewApp(cfg *config.Config, store config.Store, eng engine.Engine, bus engine.EventBus) *App {
 	return &App{
 		config: cfg,
 		store:  store,
 		eng:    eng,
+		bus:    bus,
 	}
 }
 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.trayEnd = initTray(a, a.eng, a.bus, a.config)
 }
 
 func (a *App) BeforeClose(ctx context.Context) bool {

@@ -12,10 +12,14 @@ import (
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
 )
 
-func startTray(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) {
-	systray.Register(func() {
+// initTray sets up the system tray using the external-loop API.
+// Must be called on the main thread (e.g. from Wails OnStartup).
+func initTray(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) func() {
+	start, end := systray.RunWithExternalLoop(func() {
 		onTrayReady(app, eng, bus, cfg)
 	}, func() {})
+	start()
+	return end
 }
 
 func onTrayReady(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) {

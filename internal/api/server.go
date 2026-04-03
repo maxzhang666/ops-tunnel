@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 type ServerConfig struct {
 	ListenAddr string
 	UIDir      string
+	UIEmbed    fs.FS
 	Token      string
 }
 

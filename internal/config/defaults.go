@@ -53,6 +53,9 @@ func ApplyTunnelDefaults(t *Tunnel) {
 
 // ApplyConfigDefaults applies defaults to all entities in a config.
 func ApplyConfigDefaults(cfg *Config) {
+	if cfg.Desktop.CloseAction == "" {
+		cfg.Desktop.CloseAction = "ask"
+	}
 	for i := range cfg.SSHConnections {
 		ApplySSHConnectionDefaults(&cfg.SSHConnections[i])
 	}

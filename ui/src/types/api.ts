@@ -127,3 +127,35 @@ export interface ApiErrorBody {
   error: string
   details?: { field: string; message: string }[]
 }
+
+export interface GeneralConfig {
+  logLevel: string
+  language: string
+  autoStart: boolean
+}
+
+export interface AppearanceConfig {
+  theme: string
+}
+
+export interface DesktopConfig {
+  closeAction: string
+}
+
+export interface Settings {
+  general: GeneralConfig
+  appearance: AppearanceConfig
+  desktop: DesktopConfig
+}
+
+export interface LatestRelease {
+  version: string
+  url: string
+  publishedAt: string
+}
+
+export interface VersionInfo {
+  version: string
+  mode: 'server' | 'desktop'
+  latest: LatestRelease | null
+}

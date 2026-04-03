@@ -116,11 +116,16 @@ jobs:
         if: matrix.goos == 'windows'
         run: choco install mingw -y
 
+      # ── macOS linker fix ──
+      - name: Set macOS CGO flags
+        if: matrix.goos == 'darwin'
+        run: echo "CGO_LDFLAGS=-framework UniformTypeIdentifiers" >> "$GITHUB_ENV"
+
       # ── Build binary ──
       - name: Build desktop binary
         run: |
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -ldflags="-s -w -X main.version=${VERSION}" \
+            go build -tags desktop,production -ldflags="-s -w -X main.version=${VERSION}" \
             -o tunnel-desktop${{ matrix.ext }} ./cmd/tunnel-desktop
         shell: bash
 

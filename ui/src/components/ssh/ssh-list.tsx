@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,8 +9,9 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { useSSHConnections, useDeleteSSHConnection } from '@/hooks/use-ssh-connections'
+import { useSSHConnections, useDeleteSSHConnection, useUpdateSSHConnection } from '@/hooks/use-ssh-connections'
 import { SSHTestButton } from './ssh-test-button'
+import { SSHForm } from './ssh-form'
 import { toast } from 'sonner'
 import type { SSHConnection } from '@/types/api'
 
@@ -29,8 +29,9 @@ function AuthBadge({ type }: { type: string }) {
 export function SSHList() {
   const { data: connections, isLoading } = useSSHConnections()
   const deleteMutation = useDeleteSSHConnection()
-  const navigate = useNavigate()
+  const updateMutation = useUpdateSSHConnection()
   const [deleteTarget, setDeleteTarget] = useState<SSHConnection | null>(null)
+  const [editTarget, setEditTarget] = useState<SSHConnection | null>(null)
 
   const handleDelete = () => {
     if (!deleteTarget) return
@@ -64,7 +65,7 @@ export function SSHList() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Endpoint</TableHead>
+              <TableHead>Host</TableHead>
               <TableHead>Auth</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -73,14 +74,22 @@ export function SSHList() {
             {connections.map((conn) => (
               <TableRow key={conn.id}>
                 <TableCell className="font-medium">{conn.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {conn.endpoint.host}:{conn.endpoint.port}
+                <TableCell>
+                  <div className="text-sm">{conn.auth.username}@{conn.endpoint.host}</div>
+                  <div className="text-xs text-muted-foreground">Port {conn.endpoint.port}</div>
                 </TableCell>
-                <TableCell><AuthBadge type={conn.auth.type} /></TableCell>
+                <TableCell>
+                  <div><AuthBadge type={conn.auth.type} /></div>
+                  {conn.auth.type === 'privateKey' && conn.auth.privateKey?.filePath && (
+                    <div className="mt-0.5 max-w-[150px] truncate text-xs text-muted-foreground">
+                      {conn.auth.privateKey.filePath.split('/').pop()}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <SSHTestButton id={conn.id} />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/ssh/${conn.id}`)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(conn)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(conn)}>
@@ -94,6 +103,29 @@ export function SSHList() {
         </Table>
       </div>
 
+      {/* Edit dialog */}
+      <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)}>
+        <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Edit SSH Connection</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-1">
+            {editTarget && (
+              <SSHForm
+                initialData={editTarget}
+                submitLabel="Save Changes"
+                onSubmit={async (data) => {
+                  await updateMutation.mutateAsync({ id: editTarget.id, data })
+                  toast.success('SSH connection updated')
+                  setEditTarget(null)
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>

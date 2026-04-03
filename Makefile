@@ -27,12 +27,12 @@ build: build-ui build-server
 
 # Desktop
 build-desktop: build-ui
+	rm -rf cmd/tunnel-desktop/dist
 	cp -r ui/dist cmd/tunnel-desktop/dist
-	go build -ldflags="-X main.version=$(VERSION)" -o bin/tunnel-desktop ./cmd/tunnel-desktop
+	CGO_LDFLAGS="-framework UniformTypeIdentifiers" go build -tags desktop,production -ldflags="-s -w -X main.version=$(VERSION)" -o bin/tunnel-desktop ./cmd/tunnel-desktop
 
-dev-desktop: build-ui
-	cp -r ui/dist cmd/tunnel-desktop/dist
-	go run ./cmd/tunnel-desktop
+dev-desktop: build-desktop
+	./bin/tunnel-desktop
 
 # Clean
 clean:

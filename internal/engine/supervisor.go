@@ -100,6 +100,7 @@ func (s *tunnelSupervisor) runLoop() {
 
 	for {
 		// 1. Build chain
+		s.publishLog("info", "connecting SSH chain...")
 		chain, err := tunnelssh.BuildChain(s.loopCtx, s.conns, s.hostKeys)
 		if err != nil {
 			if s.loopCtx.Err() != nil {
@@ -110,30 +111,35 @@ func (s *tunnelSupervisor) runLoop() {
 			}
 			s.mu.Lock()
 			s.lastErr = err.Error()
+			s.setState(StateError)
 			s.mu.Unlock()
 
-			slog.Warn("build chain failed", "tunnel", s.tunnel.Name, "err", err)
+			s.publishLog("error", fmt.Sprintf("chain failed: %s", err))
 
 			if !s.tunnel.Policy.AutoRestart {
-				s.mu.Lock()
-				s.setState(StateError)
-				s.mu.Unlock()
 				return
 			}
 
 			if s.rateLimitExceeded() {
 				s.mu.Lock()
 				s.lastErr = fmt.Sprintf("restart rate limit exceeded (%d/hour)", s.tunnel.Policy.MaxRestartsPerHour)
-				s.setState(StateError)
 				s.mu.Unlock()
+				s.publishLog("error", s.lastErr)
 				return
 			}
 
 			if !s.backoffSleep(backoff) {
 				return
 			}
+
+			s.publishLog("info", "retrying...")
+			s.mu.Lock()
+			s.setState(StateStarting)
+			s.mu.Unlock()
 			continue
 		}
+
+		s.publishLog("info", fmt.Sprintf("SSH chain established (%d hops)", len(s.conns)))
 
 		// 2. Start forwards
 		s.mu.Lock()
@@ -145,29 +151,32 @@ func (s *tunnelSupervisor) runLoop() {
 			s.mu.Lock()
 			s.lastErr = err.Error()
 			s.chain = nil
+			s.setState(StateError)
 			s.mu.Unlock()
 			chain.Close()
 
-			slog.Warn("start forwards failed", "tunnel", s.tunnel.Name, "err", err)
+			s.publishLog("error", fmt.Sprintf("forward failed: %s", err))
 
 			if !s.tunnel.Policy.AutoRestart {
-				s.mu.Lock()
-				s.setState(StateError)
-				s.mu.Unlock()
 				return
 			}
 
 			if s.rateLimitExceeded() {
 				s.mu.Lock()
 				s.lastErr = fmt.Sprintf("restart rate limit exceeded (%d/hour)", s.tunnel.Policy.MaxRestartsPerHour)
-				s.setState(StateError)
 				s.mu.Unlock()
+				s.publishLog("error", s.lastErr)
 				return
 			}
 
 			if !s.backoffSleep(backoff) {
 				return
 			}
+
+			s.publishLog("info", "retrying...")
+			s.mu.Lock()
+			s.setState(StateStarting)
+			s.mu.Unlock()
 			continue
 		}
 
@@ -179,6 +188,8 @@ func (s *tunnelSupervisor) runLoop() {
 		s.setState(StateRunning)
 		s.mu.Unlock()
 
+		s.publishLog("info", "tunnel running")
+
 		// 4. Wait for error or stop
 		errMsg := s.waitForError(chain)
 
@@ -189,6 +200,10 @@ func (s *tunnelSupervisor) runLoop() {
 			s.setState(StateDegraded)
 		}
 		s.mu.Unlock()
+
+		if errMsg != "" {
+			s.publishLog("warn", errMsg)
+		}
 
 		s.cleanup()
 
@@ -411,5 +426,14 @@ func (s *tunnelSupervisor) setState(state TunnelState) {
 		Level:    "info",
 		Message:  fmt.Sprintf("tunnel %s: %s", s.tunnel.Name, state),
 		Fields:   map[string]any{"state": string(state)},
+	})
+}
+
+func (s *tunnelSupervisor) publishLog(level, message string) {
+	s.bus.Publish(Event{
+		Type:     EventTunnelLog,
+		TunnelID: s.tunnel.ID,
+		Level:    level,
+		Message:  message,
 	})
 }

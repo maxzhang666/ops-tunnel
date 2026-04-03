@@ -8,5 +8,9 @@ ui/dist/
 *.out
 docs
 .claude
+CLAUDE.md
 .superpowers
 tunnel-*
+PLAN.md
+init.md
+cmd/tunnel-desktop/dist

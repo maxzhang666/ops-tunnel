@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -8,16 +9,17 @@ import { useCreateSSHConnection } from '@/hooks/use-ssh-connections'
 import { toast } from 'sonner'
 
 export default function SSHConnectionsPage() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const createMutation = useCreateSSHConnection()
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">SSH Connections</h2>
+        <h2 className="text-2xl font-bold">{t('ssh.title')}</h2>
         <Button onClick={() => setOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          New Connection
+          {t('ssh.newConnection')}
         </Button>
       </div>
       <SSHList />
@@ -25,14 +27,14 @@ export default function SSHConnectionsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
-            <DialogTitle>New SSH Connection</DialogTitle>
+            <DialogTitle>{t('ssh.newConnectionTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-1">
             <SSHForm
-              submitLabel="Create Connection"
+              submitLabel={t('ssh.createConnection')}
               onSubmit={async (data) => {
                 await createMutation.mutateAsync(data)
-                toast.success('SSH connection created')
+                toast.success(t('ssh.connectionCreated'))
                 setOpen(false)
               }}
             />

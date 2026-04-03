@@ -68,6 +68,11 @@ func (s *Server) saveConfig(ctx context.Context) (*config.ValidationResult, erro
 	return vr, nil
 }
 
+// Handler returns the HTTP handler for use by external servers (e.g., Wails AssetServer).
+func (s *Server) Handler() http.Handler {
+	return s.router
+}
+
 func (s *Server) Run(ctx context.Context) error {
 	s.http = &http.Server{
 		Addr:    s.cfg.ListenAddr,

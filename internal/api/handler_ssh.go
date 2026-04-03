@@ -24,7 +24,7 @@ func (s *Server) listSSHConnections(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createSSHConnection(w http.ResponseWriter, r *http.Request) {
 	var conn config.SSHConnection
 	if err := decodeBody(r, &conn); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		writeBodyError(w, err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (s *Server) updateSSHConnection(w http.ResponseWriter, r *http.Request) {
 
 	var conn config.SSHConnection
 	if err := decodeBody(r, &conn); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		writeBodyError(w, err)
 		return
 	}
 	conn.ID = id
@@ -182,4 +182,8 @@ func (s *Server) testSSHConnection(w http.ResponseWriter, r *http.Request) {
 			"message": result.Error,
 		})
 	}
+}
+
+func (s *Server) patchSSHConnection(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
 }

@@ -23,7 +23,7 @@ func (s *Server) listTunnels(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTunnel(w http.ResponseWriter, r *http.Request) {
 	var tun config.Tunnel
 	if err := decodeBody(r, &tun); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		writeBodyError(w, err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (s *Server) updateTunnel(w http.ResponseWriter, r *http.Request) {
 
 	var tun config.Tunnel
 	if err := decodeBody(r, &tun); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
+		writeBodyError(w, err)
 		return
 	}
 	tun.ID = id
@@ -148,4 +148,8 @@ func (s *Server) deleteTunnel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) patchTunnel(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
 }

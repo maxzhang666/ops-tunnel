@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/maxzhang666/ops-tunnel/internal/config"
@@ -62,5 +63,22 @@ func writeInternalError(w http.ResponseWriter) {
 
 func decodeBody(r *http.Request, v any) error {
 	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(v)
+	err := json.NewDecoder(r.Body).Decode(v)
+	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return maxBytesErr
+		}
+		return err
+	}
+	return nil
+}
+
+func writeBodyError(w http.ResponseWriter, err error) {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		writeJSON(w, http.StatusRequestEntityTooLarge, ErrorResponse{Error: "request body too large"})
+		return
+	}
+	writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_json", Details: []config.ValidationError{{Field: "body", Message: err.Error()}}})
 }

@@ -13,32 +13,38 @@ import (
 
 func (s *Server) registerRoutes() {
 	s.router.Get("/healthz", s.handleHealthz)
-
-	s.router.Route("/api/v1/ssh-connections", func(r chi.Router) {
-		r.Get("/", s.listSSHConnections)
-		r.Post("/", s.createSSHConnection)
-		r.Get("/{id}", s.getSSHConnection)
-		r.Put("/{id}", s.updateSSHConnection)
-		r.Delete("/{id}", s.deleteSSHConnection)
-		r.Post("/{id}/test", s.testSSHConnection)
-	})
-
-	s.router.Route("/api/v1/tunnels", func(r chi.Router) {
-		r.Get("/", s.listTunnels)
-		r.Post("/", s.createTunnel)
-		r.Get("/{id}", s.getTunnel)
-		r.Put("/{id}", s.updateTunnel)
-		r.Delete("/{id}", s.deleteTunnel)
-	})
-
-	// Tunnel control
-	s.router.Post("/api/v1/tunnels/{id}/start", s.startTunnel)
-	s.router.Post("/api/v1/tunnels/{id}/stop", s.stopTunnel)
-	s.router.Post("/api/v1/tunnels/{id}/restart", s.restartTunnel)
-	s.router.Get("/api/v1/tunnels/{id}/status", s.getTunnelStatus)
-
-	// WebSocket
 	s.router.Get("/ws", s.handleWebSocket)
+
+	s.router.Route("/api/v1", func(r chi.Router) {
+		if s.cfg.Token != "" {
+			r.Use(TokenAuth(s.cfg.Token))
+		}
+		r.Use(MaxBodySize(1 << 20))
+
+		r.Route("/ssh-connections", func(r chi.Router) {
+			r.Get("/", s.listSSHConnections)
+			r.Post("/", s.createSSHConnection)
+			r.Get("/{id}", s.getSSHConnection)
+			r.Put("/{id}", s.updateSSHConnection)
+			r.Patch("/{id}", s.patchSSHConnection)
+			r.Delete("/{id}", s.deleteSSHConnection)
+			r.Post("/{id}/test", s.testSSHConnection)
+		})
+
+		r.Route("/tunnels", func(r chi.Router) {
+			r.Get("/", s.listTunnels)
+			r.Post("/", s.createTunnel)
+			r.Get("/{id}", s.getTunnel)
+			r.Put("/{id}", s.updateTunnel)
+			r.Patch("/{id}", s.patchTunnel)
+			r.Delete("/{id}", s.deleteTunnel)
+		})
+
+		r.Post("/tunnels/{id}/start", s.startTunnel)
+		r.Post("/tunnels/{id}/stop", s.stopTunnel)
+		r.Post("/tunnels/{id}/restart", s.restartTunnel)
+		r.Get("/tunnels/{id}/status", s.getTunnelStatus)
+	})
 
 	if s.cfg.UIDir != "" {
 		s.serveSPA(s.cfg.UIDir)

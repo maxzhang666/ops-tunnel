@@ -1,0 +1,12 @@
+bin/
+data/
+node_modules/
+.git/
+.github/
+cmd/tunnel-desktop/
+docs/
+*.md
+tunnel-server
+tunnel-desktop
+ui/dist/
+ui/node_modules/

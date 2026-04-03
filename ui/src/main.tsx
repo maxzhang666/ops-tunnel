@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 import { router } from './router'
 import { eventSocket } from './lib/ws'
+import './lib/i18n'
 import './index.css'
 
 const queryClient = new QueryClient({

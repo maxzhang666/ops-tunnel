@@ -3,7 +3,7 @@ import { AppLayout } from '@/layouts/app-layout'
 import SSHConnectionsPage from '@/pages/ssh-connections'
 import SSHConnectionNewPage from '@/pages/ssh-connection-new'
 import SSHConnectionEditPage from '@/pages/ssh-connection-edit'
-import TunnelsPlaceholder from '@/pages/tunnels-placeholder'
+import TunnelsPage from '@/pages/tunnels'
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +13,7 @@ export const router = createBrowserRouter([
       { path: 'ssh', element: <SSHConnectionsPage /> },
       { path: 'ssh/new', element: <SSHConnectionNewPage /> },
       { path: 'ssh/:id', element: <SSHConnectionEditPage /> },
-      { path: 'tunnels', element: <TunnelsPlaceholder /> },
+      { path: 'tunnels', element: <TunnelsPage /> },
     ],
   },
 ])

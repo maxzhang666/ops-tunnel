@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router'
-import { Cable, Link2 } from 'lucide-react'
+import { Cable, Link2, Settings } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +35,23 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <Separator />
+      <div className="px-2 py-3">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            )
+          }
+        >
+          <Settings className="h-4 w-4" />
+          Settings
+        </NavLink>
+      </div>
     </aside>
   )
 }

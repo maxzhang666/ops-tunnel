@@ -10,7 +10,7 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="flex h-screen w-56 flex-col border-r bg-background">
+    <aside className="flex h-full w-56 shrink-0 flex-col rounded-l-xl border-r bg-background">
       <div className="px-4 py-5">
         <h1 className="text-lg font-bold">OpsTunnel</h1>
         <p className="text-xs text-muted-foreground">SSH Tunnel Manager</p>

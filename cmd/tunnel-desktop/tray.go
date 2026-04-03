@@ -13,7 +13,7 @@ import (
 )
 
 func startTray(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) {
-	systray.Run(func() {
+	systray.Register(func() {
 		onTrayReady(app, eng, bus, cfg)
 	}, func() {})
 }

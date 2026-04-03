@@ -12,10 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://localhost:8080",
-      "/healthz": "http://localhost:8080",
+      "/api": "http://localhost:9876",
+      "/healthz": "http://localhost:9876",
       "/ws": {
-        target: "http://localhost:8080",
+        target: "http://localhost:9876",
         ws: true,
       },
     },

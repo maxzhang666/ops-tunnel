@@ -96,9 +96,11 @@ func main() {
 	slog.Info("desktop starting", "api", fmt.Sprintf("http://localhost:%d", port))
 
 	if err := wails.Run(&options.App{
-		Title:  "OpsTunnel",
-		Width:  1280,
-		Height: 800,
+		Title:            "OpsTunnel",
+		Width:            1060,
+		Height:           832,
+		DisableResize:    true,
+		StartHidden:      false,
 		AssetServer: &assetserver.Options{
 			Assets:  frontendAssets,
 			Handler: srv.Handler(),

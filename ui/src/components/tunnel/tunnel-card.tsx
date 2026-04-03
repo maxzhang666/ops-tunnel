@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { Loader2, Play, Square, RotateCw, Trash2 } from 'lucide-react'
+import { Loader2, Power, PowerOff, RotateCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSSHConnections } from '@/hooks/use-ssh-connections'
@@ -112,16 +112,16 @@ export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
             </Button>
           )}
           <Button
-            variant="outline" size="icon" className="h-8 w-8"
+            variant="outline" size="icon" className={cn("h-8 w-8", state === 'running' || state === 'degraded' ? 'text-green-600 hover:text-red-600' : 'text-muted-foreground hover:text-green-600')}
             onClick={handleControl} disabled={isBusy || isTransitioning}
             title={state === 'stopped' || state === 'error' ? 'Start' : 'Stop'}
           >
             {isBusy || isTransitioning ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : state === 'stopped' || state === 'error' ? (
-              <Play className="h-3.5 w-3.5" />
+              <Power className="h-3.5 w-3.5" />
             ) : (
-              <Square className="h-3.5 w-3.5" />
+              <PowerOff className="h-3.5 w-3.5" />
             )}
           </Button>
           <Button

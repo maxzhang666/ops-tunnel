@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { SSHTestButton } from './ssh-test-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError } from '@/lib/api'
 import type { SSHConnection, AuthType, PrivateKeySource, HostKeyVerifyMode } from '@/types/api'
@@ -211,12 +211,13 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
         </Card>
       )}
 
-      <Separator />
-
-      <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={submitting}>
-          {submitting ? 'Saving...' : submitLabel}
-        </Button>
+      <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur">
+        <div className="flex justify-end gap-3">
+          {initialData?.id && <SSHTestButton id={initialData.id} />}
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Saving...' : submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   )

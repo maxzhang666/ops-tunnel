@@ -1,5 +1,7 @@
 .PHONY: dev dev-server dev-ui build build-ui build-server clean install-ui
 
+VERSION ?= dev
+
 # Development
 dev-server:
 	go run ./cmd/tunnel-server --listen 127.0.0.1:9876
@@ -19,14 +21,14 @@ build-ui:
 	cd ui && pnpm build
 
 build-server:
-	go build -o bin/tunnel-server ./cmd/tunnel-server
+	go build -ldflags="-X main.version=$(VERSION)" -o bin/tunnel-server ./cmd/tunnel-server
 
 build: build-ui build-server
 
 # Desktop
 build-desktop: build-ui
 	cp -r ui/dist cmd/tunnel-desktop/dist
-	go build -o bin/tunnel-desktop ./cmd/tunnel-desktop
+	go build -ldflags="-X main.version=$(VERSION)" -o bin/tunnel-desktop ./cmd/tunnel-desktop
 
 dev-desktop: build-ui
 	cp -r ui/dist cmd/tunnel-desktop/dist

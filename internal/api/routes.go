@@ -48,6 +48,7 @@ func (s *Server) registerRoutes() {
 
 		r.Get("/settings", s.getSettings)
 		r.Patch("/settings", s.patchSettings)
+		r.Get("/version", s.getVersion)
 	})
 
 	if s.cfg.UIEmbed != nil {

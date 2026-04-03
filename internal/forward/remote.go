@@ -17,6 +17,7 @@ import (
 type RemoteForwarder struct {
 	mapping    config.Mapping
 	listenAddr string // actual remote address returned by sshClient.Listen
+	logFn      LogFunc
 
 	mu       sync.RWMutex
 	listener net.Listener
@@ -28,6 +29,8 @@ type RemoteForwarder struct {
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
 }
+
+func (f *RemoteForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
 
 // NewRemoteForwarder creates a new remote forwarder for the given mapping.
 func NewRemoteForwarder(m config.Mapping) *RemoteForwarder {

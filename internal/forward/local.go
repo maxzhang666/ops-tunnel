@@ -16,6 +16,7 @@ import (
 type LocalForwarder struct {
 	mapping    config.Mapping
 	listenAddr string // actual bound address after Start
+	logFn      LogFunc
 
 	mu       sync.RWMutex
 	listener net.Listener
@@ -27,6 +28,8 @@ type LocalForwarder struct {
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
 }
+
+func (f *LocalForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
 
 // NewLocalForwarder creates a new local forwarder for the given mapping.
 func NewLocalForwarder(m config.Mapping) *LocalForwarder {

@@ -7,7 +7,8 @@ interface Props {
 }
 
 export function AboutSection({ version, isLoading }: Props) {
-  const hasUpdate = version?.latest && version.latest.version !== version.version && version.version !== 'dev'
+  const isDev = version?.version === 'dev'
+  const hasUpdate = version?.latest && !isDev && version.latest.version !== version.version
 
   return (
     <SettingSection title="About">
@@ -34,6 +35,10 @@ export function AboutSection({ version, isLoading }: Props) {
             >
               Download
             </a>
+          </div>
+        ) : isDev && version?.latest ? (
+          <div className="text-sm text-muted-foreground">
+            Development build — latest release: v{version.latest.version}
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">

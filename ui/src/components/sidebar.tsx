@@ -2,6 +2,7 @@ import { NavLink } from 'react-router'
 import { Cable, Link2, Settings } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useVersion } from '@/hooks/use-settings'
 
 const navItems = [
   { to: '/ssh', label: 'SSH Connections', icon: Link2 },
@@ -9,6 +10,9 @@ const navItems = [
 ]
 
 export function Sidebar() {
+  const { data: version } = useVersion()
+  const hasUpdate = version?.latest && version.latest.version !== version.version && version.version !== 'dev'
+
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col rounded-l-xl border-r bg-background">
       <div className="px-4 py-5">
@@ -50,6 +54,9 @@ export function Sidebar() {
         >
           <Settings className="h-4 w-4" />
           Settings
+          {hasUpdate && (
+            <span className="ml-auto h-2 w-2 rounded-full bg-destructive" />
+          )}
         </NavLink>
       </div>
     </aside>

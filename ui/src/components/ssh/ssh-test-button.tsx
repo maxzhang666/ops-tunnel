@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTestSSHConnection } from '@/hooks/use-ssh-connections'
 
 export function SSHTestButton({ id }: { id: string }) {
+  const { t } = useTranslation()
   const testMutation = useTestSSHConnection()
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -27,7 +29,7 @@ export function SSHTestButton({ id }: { id: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <Button variant="outline" size="sm" onClick={handleTest} disabled={testMutation.isPending}>
-        {testMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+        {testMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t('common.test')}
       </Button>
       {result && (
         <span className="inline-flex items-center gap-1 text-xs">

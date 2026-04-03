@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { SSHTestButton } from './ssh-test-button'
 import { Input } from '@/components/ui/input'
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError } from '@/lib/api'
+import { translateValidationErrors } from '@/lib/api-errors'
 import type { SSHConnection, AuthType, PrivateKeySource, HostKeyVerifyMode } from '@/types/api'
 
 interface SSHFormProps {
@@ -15,6 +17,7 @@ interface SSHFormProps {
 }
 
 export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name ?? '')
   const [host, setHost] = useState(initialData?.endpoint?.host ?? '')
   const [port, setPort] = useState(initialData?.endpoint?.port ?? 22)
@@ -66,7 +69,9 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
       await onSubmit(data)
     } catch (err) {
       if (err instanceof ApiError) {
-        const details = err.body.details?.map((d) => d.message).join(', ')
+        const details = err.body.details
+          ? translateValidationErrors(err.body.details).map((d) => d.message).join(', ')
+          : undefined
         setError(details || err.body.error)
       } else {
         setError(String(err))
@@ -85,19 +90,19 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
       )}
 
       <Card>
-        <CardHeader><CardTitle>Basic</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('common.basic')}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t('common.name')}</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 space-y-2">
-              <Label htmlFor="host">Host</Label>
+              <Label htmlFor="host">{t('common.host')}</Label>
               <Input id="host" value={host} onChange={(e) => setHost(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="port">Port</Label>
+              <Label htmlFor="port">{t('common.port')}</Label>
               <Input id="port" type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} />
             </div>
           </div>
@@ -105,35 +110,35 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Authentication</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('ssh.authentication')}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Auth Type</Label>
+            <Label>{t('ssh.authType')}</Label>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
               value={authType}
               onChange={(e) => setAuthType(e.target.value as AuthType)}
             >
-              <option value="password">Password</option>
-              <option value="privateKey">Private Key</option>
-              <option value="none">None</option>
+              <option value="password">{t('ssh.authPassword')}</option>
+              <option value="privateKey">{t('ssh.authPrivateKey')}</option>
+              <option value="none">{t('ssh.authNone')}</option>
             </select>
           </div>
 
           {authType !== 'none' && (
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t('common.username')}</Label>
               <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
           )}
 
           {authType === 'password' && (
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('common.password')}</Label>
               <Input
                 id="password" type="password" value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={initialData ? '(unchanged if empty)' : ''}
+                placeholder={initialData ? t('ssh.passwordUnchanged') : ''}
               />
             </div>
           )}
@@ -141,29 +146,29 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
           {authType === 'privateKey' && (
             <>
               <div className="space-y-2">
-                <Label>Key Source</Label>
+                <Label>{t('ssh.keySource')}</Label>
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
                   value={keySource}
                   onChange={(e) => setKeySource(e.target.value as PrivateKeySource)}
                 >
-                  <option value="file">File Path</option>
-                  <option value="inline">Inline PEM</option>
+                  <option value="file">{t('ssh.keySourceFile')}</option>
+                  <option value="inline">{t('ssh.keySourceInline')}</option>
                 </select>
               </div>
               {keySource === 'file' ? (
                 <div className="space-y-2">
-                  <Label htmlFor="keyFile">Key File Path</Label>
-                  <Input id="keyFile" value={keyFilePath} onChange={(e) => setKeyFilePath(e.target.value)} placeholder="/home/user/.ssh/id_ed25519" />
+                  <Label htmlFor="keyFile">{t('ssh.keyFilePath')}</Label>
+                  <Input id="keyFile" value={keyFilePath} onChange={(e) => setKeyFilePath(e.target.value)} placeholder={t('ssh.keyFilePlaceholder')} />
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="keyPem">Private Key PEM</Label>
-                  <Textarea id="keyPem" value={keyPem} onChange={(e) => setKeyPem(e.target.value)} rows={6} className="font-mono text-xs" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" />
+                  <Label htmlFor="keyPem">{t('ssh.privateKeyPem')}</Label>
+                  <Textarea id="keyPem" value={keyPem} onChange={(e) => setKeyPem(e.target.value)} rows={6} className="font-mono text-xs" placeholder={t('ssh.privateKeyPlaceholder')} />
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="passphrase">Passphrase (optional)</Label>
+                <Label htmlFor="passphrase">{t('ssh.passphrase')}</Label>
                 <Input id="passphrase" type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
               </div>
             </>
@@ -173,37 +178,37 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
 
       <div>
         <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdvanced(!showAdvanced)}>
-          {showAdvanced ? '\u25be Hide Advanced' : '\u25b8 Show Advanced'}
+          {showAdvanced ? `\u25be ${t('common.hideAdvanced')}` : `\u25b8 ${t('common.showAdvanced')}`}
         </Button>
       </div>
 
       {showAdvanced && (
         <Card>
-          <CardHeader><CardTitle>Advanced</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('common.advanced')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Host Key Verification</Label>
+              <Label>{t('ssh.hostKeyVerification')}</Label>
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
                 value={hostKeyMode}
                 onChange={(e) => setHostKeyMode(e.target.value as HostKeyVerifyMode)}
               >
-                <option value="acceptNew">Accept New</option>
-                <option value="strict">Strict</option>
-                <option value="insecure">Insecure (skip verification)</option>
+                <option value="acceptNew">{t('ssh.hostKeyAcceptNew')}</option>
+                <option value="strict">{t('ssh.hostKeyStrict')}</option>
+                <option value="insecure">{t('ssh.hostKeyInsecure')}</option>
               </select>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dialTimeout">Dial Timeout (ms)</Label>
+                <Label htmlFor="dialTimeout">{t('ssh.dialTimeout')}</Label>
                 <Input id="dialTimeout" type="number" value={dialTimeout} onChange={(e) => setDialTimeout(Number(e.target.value))} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kaInterval">KeepAlive Interval (ms)</Label>
+                <Label htmlFor="kaInterval">{t('ssh.keepAliveInterval')}</Label>
                 <Input id="kaInterval" type="number" value={kaInterval} onChange={(e) => setKaInterval(Number(e.target.value))} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kaMaxMissed">Max Missed</Label>
+                <Label htmlFor="kaMaxMissed">{t('ssh.maxMissed')}</Label>
                 <Input id="kaMaxMissed" type="number" value={kaMaxMissed} onChange={(e) => setKaMaxMissed(Number(e.target.value))} />
               </div>
             </div>
@@ -215,7 +220,7 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
         <div className="flex justify-end gap-3">
           {initialData?.id && <SSHTestButton id={initialData.id} />}
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Saving...' : submitLabel}
+            {submitting ? t('common.saving') : submitLabel}
           </Button>
         </div>
       </div>

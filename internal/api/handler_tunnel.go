@@ -10,13 +10,24 @@ import (
 )
 
 func (s *Server) listTunnels(w http.ResponseWriter, r *http.Request) {
+	statusFilter := r.URL.Query().Get("status")
+
 	s.mu.RLock()
-	tunnels := make([]config.Tunnel, len(s.data.Tunnels))
-	for i, t := range s.data.Tunnels {
-		tunnels[i] = config.RedactTunnel(t)
+	var tunnels []config.Tunnel
+	for _, t := range s.data.Tunnels {
+		if statusFilter != "" {
+			st, ok := s.eng.GetStatus(t.ID)
+			if !ok || string(st.State) != statusFilter {
+				continue
+			}
+		}
+		tunnels = append(tunnels, config.RedactTunnel(t))
 	}
 	s.mu.RUnlock()
 
+	if tunnels == nil {
+		tunnels = []config.Tunnel{}
+	}
 	writeJSON(w, http.StatusOK, tunnels)
 }
 
@@ -150,6 +161,77 @@ func (s *Server) deleteTunnel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type tunnelPatch struct {
+	Name     *string            `json:"name,omitempty"`
+	Mode     *config.TunnelMode `json:"mode,omitempty"`
+	Chain    []string           `json:"chain,omitempty"`
+	Mappings []config.Mapping   `json:"mappings,omitempty"`
+	Policy   *config.Policy     `json:"policy,omitempty"`
+}
+
 func (s *Server) patchTunnel(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	id := chi.URLParam(r, "id")
+
+	var patch tunnelPatch
+	if err := decodeBody(r, &patch); err != nil {
+		writeBodyError(w, err)
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := -1
+	for i, t := range s.data.Tunnels {
+		if t.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeNotFound(w, "tunnel", id)
+		return
+	}
+
+	old := s.data.Tunnels[idx]
+	tun := old
+
+	if patch.Name != nil {
+		tun.Name = *patch.Name
+	}
+	if patch.Mode != nil {
+		tun.Mode = *patch.Mode
+	}
+	if patch.Chain != nil {
+		tun.Chain = patch.Chain
+	}
+	if patch.Mappings != nil {
+		tun.Mappings = patch.Mappings
+		for i := range tun.Mappings {
+			if tun.Mappings[i].ID == "" {
+				tun.Mappings[i].ID = xid.New().String()
+			}
+		}
+	}
+	if patch.Policy != nil {
+		tun.Policy = *patch.Policy
+	}
+
+	config.ApplyTunnelDefaults(&tun)
+	s.data.Tunnels[idx] = tun
+
+	vr, err := s.saveConfig(r.Context())
+	if err != nil {
+		s.data.Tunnels[idx] = old
+		slog.Error("failed to save config", "err", err)
+		writeInternalError(w)
+		return
+	}
+	if vr.HasErrors() {
+		s.data.Tunnels[idx] = old
+		writeValidationError(w, vr.Errors)
+		return
+	}
+
+	writeData(w, http.StatusOK, config.RedactTunnel(tun), vr.Warnings)
 }

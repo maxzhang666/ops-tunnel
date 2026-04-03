@@ -184,6 +184,76 @@ func (s *Server) testSSHConnection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type sshConnectionPatch struct {
+	Name                *string                     `json:"name,omitempty"`
+	Endpoint            *config.Endpoint            `json:"endpoint,omitempty"`
+	Auth                *config.Auth                `json:"auth,omitempty"`
+	HostKeyVerification *config.HostKeyVerification `json:"hostKeyVerification,omitempty"`
+	DialTimeoutMs       *int                        `json:"dialTimeoutMs,omitempty"`
+	KeepAlive           *config.KeepAlive           `json:"keepAlive,omitempty"`
+}
+
 func (s *Server) patchSSHConnection(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	id := chi.URLParam(r, "id")
+
+	var patch sshConnectionPatch
+	if err := decodeBody(r, &patch); err != nil {
+		writeBodyError(w, err)
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := -1
+	for i, c := range s.data.SSHConnections {
+		if c.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeNotFound(w, "ssh-connection", id)
+		return
+	}
+
+	old := s.data.SSHConnections[idx]
+	conn := old
+
+	if patch.Name != nil {
+		conn.Name = *patch.Name
+	}
+	if patch.Endpoint != nil {
+		conn.Endpoint = *patch.Endpoint
+	}
+	if patch.Auth != nil {
+		conn.Auth = *patch.Auth
+	}
+	if patch.HostKeyVerification != nil {
+		conn.HostKeyVerification = *patch.HostKeyVerification
+	}
+	if patch.DialTimeoutMs != nil {
+		conn.DialTimeoutMs = *patch.DialTimeoutMs
+	}
+	if patch.KeepAlive != nil {
+		conn.KeepAlive = *patch.KeepAlive
+	}
+
+	config.ApplySSHConnectionDefaults(&conn)
+	s.data.SSHConnections[idx] = conn
+
+	vr, err := s.saveConfig(r.Context())
+	if err != nil {
+		s.data.SSHConnections[idx] = old
+		slog.Error("failed to save config", "err", err)
+		writeInternalError(w)
+		return
+	}
+	if vr.HasErrors() {
+		s.data.SSHConnections[idx] = old
+		writeValidationError(w, vr.Errors)
+		return
+	}
+
+	writeData(w, http.StatusOK, config.RedactSSHConnection(conn), vr.Warnings)
 }

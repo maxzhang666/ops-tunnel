@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,11 +16,12 @@ const stateColors: Record<string, string> = {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text)
-    toast.success(`Copied ${text}`)
+    toast.success(t('mapping.copied', { text }))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -37,16 +39,17 @@ interface DetailMappingsProps {
 }
 
 export function DetailMappings({ tunnel, status }: DetailMappingsProps) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-lg border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Listen</TableHead>
-            <TableHead>Connect</TableHead>
-            <TableHead>State</TableHead>
-            <TableHead>Detail</TableHead>
-            <TableHead className="w-12">Copy</TableHead>
+            <TableHead>{t('mapping.listen')}</TableHead>
+            <TableHead>{t('mapping.connect')}</TableHead>
+            <TableHead>{t('mapping.state')}</TableHead>
+            <TableHead>{t('mapping.detail')}</TableHead>
+            <TableHead className="w-12">{t('mapping.copy')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -55,7 +58,7 @@ export function DetailMappings({ tunnel, status }: DetailMappingsProps) {
             const mState = ms?.state ?? 'stopped'
             const listen = ms?.listen ?? `${mapping.listen.host}:${mapping.listen.port}`
             const connect = tunnel.mode === 'dynamic'
-              ? 'SOCKS5'
+              ? t('mapping.socks5')
               : mapping.connect ? `${mapping.connect.host}:${mapping.connect.port}` : '\u2014'
 
             return (

@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -55,6 +56,7 @@ interface ChainSelectorProps {
 }
 
 export function ChainSelector({ value, onChange }: ChainSelectorProps) {
+  const { t } = useTranslation()
   const { data: allConns } = useSSHConnections()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -95,7 +97,7 @@ export function ChainSelector({ value, onChange }: ChainSelectorProps) {
 
   return (
     <div className="space-y-3">
-      <Label>SSH Chain</Label>
+      <Label>{t('tunnel.sshChain')}</Label>
 
       {value.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -114,7 +116,7 @@ export function ChainSelector({ value, onChange }: ChainSelectorProps) {
       )}
 
       {value.length === 0 && (
-        <p className="text-sm text-muted-foreground">No SSH connections selected. Add at least one.</p>
+        <p className="text-sm text-muted-foreground">{t('tunnel.chainEmpty')}</p>
       )}
 
       <select
@@ -122,7 +124,7 @@ export function ChainSelector({ value, onChange }: ChainSelectorProps) {
         onChange={handleAdd}
         defaultValue=""
       >
-        <option value="" disabled>+ Add SSH connection...</option>
+        <option value="" disabled>{t('tunnel.chainAddPlaceholder')}</option>
         {available.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name} ({c.endpoint.host}:{c.endpoint.port})

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +18,7 @@ function TunnelWithStatus({ tunnel, onDelete }: { tunnel: Tunnel; onDelete: (t: 
 }
 
 export function TunnelList() {
+  const { t } = useTranslation()
   const { data: tunnels, isLoading } = useTunnels()
   const deleteMutation = useDeleteTunnel()
   const queryClient = useQueryClient()
@@ -32,23 +34,23 @@ export function TunnelList() {
     if (!deleteTarget) return
     deleteMutation.mutate(deleteTarget.id, {
       onSuccess: () => {
-        toast.success(`Deleted "${deleteTarget.name}"`)
+        toast.success(t('tunnel.deleted', { name: deleteTarget.name }))
         setDeleteTarget(null)
       },
       onError: (err) => {
-        toast.error(`Delete failed: ${err.message}`)
+        toast.error(t('tunnel.deleteFailed', { error: err.message }))
       },
     })
   }
 
   if (isLoading) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <div className="py-8 text-center text-muted-foreground">{t('common.loading')}</div>
   }
 
   if (!tunnels?.length) {
     return (
       <div className="py-12 text-center text-muted-foreground">
-        No tunnels yet. Create one to get started.
+        {t('tunnel.emptyState')}
       </div>
     )
   }
@@ -64,15 +66,15 @@ export function TunnelList() {
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Tunnel</DialogTitle>
+            <DialogTitle>{t('tunnel.deleteTitle')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteTarget?.name}&quot;? This action cannot be undone.
+              {t('tunnel.deleteConfirm', { name: deleteTarget?.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-              Delete
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

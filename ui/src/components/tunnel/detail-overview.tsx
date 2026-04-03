@@ -1,15 +1,25 @@
+import { useTranslation } from 'react-i18next'
 import { useSSHConnections } from '@/hooks/use-ssh-connections'
 import { LogViewer } from './log-viewer'
 import { cn } from '@/lib/utils'
 import type { Tunnel, TunnelStatus } from '@/types/api'
 
-const stateColors: Record<string, { label: string; color: string }> = {
-  running: { label: 'Running', color: 'text-green-600' },
-  stopped: { label: 'Stopped', color: 'text-muted-foreground' },
-  error: { label: 'Error', color: 'text-destructive' },
-  degraded: { label: 'Degraded', color: 'text-yellow-600' },
-  starting: { label: 'Starting...', color: 'text-blue-600' },
-  stopping: { label: 'Stopping...', color: 'text-muted-foreground' },
+const stateColorMap: Record<string, string> = {
+  running: 'text-green-600',
+  stopped: 'text-muted-foreground',
+  error: 'text-destructive',
+  degraded: 'text-yellow-600',
+  starting: 'text-blue-600',
+  stopping: 'text-muted-foreground',
+}
+
+const stateKeys: Record<string, string> = {
+  running: 'tunnel.stateRunning',
+  stopped: 'tunnel.stateStopped',
+  error: 'tunnel.stateError',
+  degraded: 'tunnel.stateDegraded',
+  starting: 'tunnel.stateStarting',
+  stopping: 'tunnel.stateStopping',
 }
 
 function formatUptime(since?: string): string {
@@ -27,15 +37,16 @@ interface DetailOverviewProps {
 }
 
 export function DetailOverview({ tunnel, status }: DetailOverviewProps) {
+  const { t } = useTranslation()
   const { data: sshConns } = useSSHConnections()
   const state = status?.state ?? 'stopped'
-  const st = stateColors[state] ?? stateColors.stopped
+  const stColor = stateColorMap[state] ?? stateColorMap.stopped
   const activeMappings = status?.mappings?.filter((m) => m.state === 'listening').length ?? 0
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-card p-4">
-        <h4 className="mb-3 text-sm font-medium">SSH Chain</h4>
+        <h4 className="mb-3 text-sm font-medium">{t('overview.sshChain')}</h4>
         <div className="flex flex-wrap items-center gap-2">
           {tunnel.chain.map((connId, i) => {
             const conn = sshConns?.find((c) => c.id === connId)
@@ -53,7 +64,7 @@ export function DetailOverview({ tunnel, status }: DetailOverviewProps) {
                     {conn ? `${conn.endpoint.host}:${conn.endpoint.port}` : ''}
                   </div>
                   <div className={cn('text-[10px]', connected ? 'text-green-600' : 'text-muted-foreground')}>
-                    {'\u25CF'} {hopStatus?.state ?? 'disconnected'}
+                    {'\u25CF'} {hopStatus?.state ?? t('tunnel.disconnected')}
                   </div>
                 </div>
               </div>
@@ -64,17 +75,17 @@ export function DetailOverview({ tunnel, status }: DetailOverviewProps) {
 
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border bg-card p-3">
-          <div className="text-xs text-muted-foreground">State</div>
-          <div className={cn('text-base font-semibold', st.color)}>{st.label}</div>
+          <div className="text-xs text-muted-foreground">{t('overview.state')}</div>
+          <div className={cn('text-base font-semibold', stColor)}>{t(stateKeys[state] ?? 'tunnel.stateStopped')}</div>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <div className="text-xs text-muted-foreground">Mappings</div>
+          <div className="text-xs text-muted-foreground">{t('overview.mappings')}</div>
           <div className="text-base font-semibold">
-            {state === 'running' ? `${activeMappings} active` : `${tunnel.mappings.length} configured`}
+            {state === 'running' ? t('mapping.active', { count: activeMappings }) : t('mapping.configured', { count: tunnel.mappings.length })}
           </div>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <div className="text-xs text-muted-foreground">Uptime</div>
+          <div className="text-xs text-muted-foreground">{t('overview.uptime')}</div>
           <div className="text-base font-semibold">
             {state === 'running' ? formatUptime(status?.since) : '\u2014'}
           </div>

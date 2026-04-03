@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, Play, Square, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,19 +16,34 @@ const statusColors: Record<string, string> = {
   stopping: 'bg-gray-400',
 }
 
-const stateText: Record<string, { label: string; color: string }> = {
-  running: { label: 'Running', color: 'text-green-600' },
-  stopped: { label: 'Stopped', color: 'text-muted-foreground' },
-  error: { label: 'Error', color: 'text-destructive' },
-  degraded: { label: 'Degraded', color: 'text-yellow-600' },
-  starting: { label: 'Starting...', color: 'text-blue-600' },
-  stopping: { label: 'Stopping...', color: 'text-muted-foreground' },
+const stateColors: Record<string, string> = {
+  running: 'text-green-600',
+  stopped: 'text-muted-foreground',
+  error: 'text-destructive',
+  degraded: 'text-yellow-600',
+  starting: 'text-blue-600',
+  stopping: 'text-muted-foreground',
 }
 
-const modeStyles: Record<string, { bg: string; text: string; label: string }> = {
-  local: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Local' },
-  remote: { bg: 'bg-pink-50', text: 'text-pink-700', label: 'Remote' },
-  dynamic: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Dynamic' },
+const stateKeys: Record<string, string> = {
+  running: 'tunnel.stateRunning',
+  stopped: 'tunnel.stateStopped',
+  error: 'tunnel.stateError',
+  degraded: 'tunnel.stateDegraded',
+  starting: 'tunnel.stateStarting',
+  stopping: 'tunnel.stateStopping',
+}
+
+const modeStyles: Record<string, { bg: string; text: string }> = {
+  local: { bg: 'bg-blue-50', text: 'text-blue-700' },
+  remote: { bg: 'bg-pink-50', text: 'text-pink-700' },
+  dynamic: { bg: 'bg-amber-50', text: 'text-amber-700' },
+}
+
+const modeLabels: Record<string, string> = {
+  local: 'tunnel.modeLabelLocal',
+  remote: 'tunnel.modeLabelRemote',
+  dynamic: 'tunnel.modeLabelDynamic',
 }
 
 function formatUptime(since: string): string {
@@ -44,6 +60,7 @@ interface DetailHeaderProps {
 }
 
 export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const startMutation = useStartTunnel()
   const stopMutation = useStopTunnel()
@@ -51,7 +68,7 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
 
   const state = status?.state ?? 'stopped'
   const mode = modeStyles[tunnel.mode] ?? modeStyles.local
-  const st = stateText[state] ?? stateText.stopped
+  const stColor = stateColors[state] ?? stateColors.stopped
   const isTransitioning = state === 'starting' || state === 'stopping'
   const isBusy = startMutation.isPending || stopMutation.isPending || restartMutation.isPending
 
@@ -64,28 +81,29 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
           </Button>
           <span className={cn('inline-block h-2.5 w-2.5 rounded-full', statusColors[state])} />
           <h2 className="text-xl font-bold">{tunnel.name}</h2>
-          <Badge variant="secondary" className={cn(mode.bg, mode.text)}>{mode.label}</Badge>
-          <span className={cn('text-sm', st.color)}>
-            {st.label}
-            {state === 'running' && status?.since ? ` · ${formatUptime(status.since)}` : ''}
+          <Badge variant="secondary" className={cn(mode.bg, mode.text)}>{t(modeLabels[tunnel.mode] ?? 'tunnel.modeLabelLocal')}</Badge>
+          <span className={cn('text-sm', stColor)}>
+            {state === 'running' && status?.since
+              ? t('tunnel.runningUptime', { uptime: formatUptime(status.since) })
+              : t(stateKeys[state] ?? 'tunnel.stateStopped')}
           </span>
         </div>
         <div className="flex gap-2">
           {(state === 'running' || state === 'degraded') && (
             <Button variant="outline" size="sm" onClick={() => stopMutation.mutate(tunnel.id)} disabled={isBusy}>
               {stopMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Square className="mr-1 h-3.5 w-3.5" />}
-              Stop
+              {t('common.stop')}
             </Button>
           )}
           {(state === 'stopped' || state === 'error') && (
             <Button variant="outline" size="sm" onClick={() => startMutation.mutate(tunnel.id)} disabled={isBusy}>
               {startMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1 h-3.5 w-3.5" />}
-              Start
+              {t('common.start')}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => restartMutation.mutate(tunnel.id)} disabled={isBusy || isTransitioning}>
             {restartMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RotateCw className="mr-1 h-3.5 w-3.5" />}
-            Restart
+            {t('common.restart')}
           </Button>
         </div>
       </div>

@@ -131,6 +131,18 @@ type Tunnel struct {
 	Policy   Policy     `json:"policy"`
 }
 
+// GeneralConfig holds general application settings.
+type GeneralConfig struct {
+	LogLevel  string `json:"logLevel"`  // "debug" | "info" | "warn" | "error"
+	Language  string `json:"language"`  // "en" (placeholder)
+	AutoStart bool   `json:"autoStart"` // launch on system startup (desktop only)
+}
+
+// AppearanceConfig holds UI appearance settings.
+type AppearanceConfig struct {
+	Theme string `json:"theme"` // "light" | "dark" | "system"
+}
+
 // DesktopConfig holds desktop application settings.
 type DesktopConfig struct {
 	CloseAction string `json:"closeAction"` // "minimize" | "quit" | "ask"
@@ -138,10 +150,12 @@ type DesktopConfig struct {
 
 // Config is the top-level configuration persisted to disk.
 type Config struct {
-	Version        int             `json:"version"`
-	Desktop        DesktopConfig   `json:"desktop"`
-	SSHConnections []SSHConnection `json:"sshConnections"`
-	Tunnels        []Tunnel        `json:"tunnels"`
+	Version        int              `json:"version"`
+	General        GeneralConfig    `json:"general"`
+	Appearance     AppearanceConfig `json:"appearance"`
+	Desktop        DesktopConfig    `json:"desktop"`
+	SSHConnections []SSHConnection  `json:"sshConnections"`
+	Tunnels        []Tunnel         `json:"tunnels"`
 }
 
 // NewConfig returns an empty config with version set.

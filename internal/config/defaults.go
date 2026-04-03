@@ -53,6 +53,15 @@ func ApplyTunnelDefaults(t *Tunnel) {
 
 // ApplyConfigDefaults applies defaults to all entities in a config.
 func ApplyConfigDefaults(cfg *Config) {
+	if cfg.General.LogLevel == "" {
+		cfg.General.LogLevel = "info"
+	}
+	if cfg.General.Language == "" {
+		cfg.General.Language = "en"
+	}
+	if cfg.Appearance.Theme == "" {
+		cfg.Appearance.Theme = "light"
+	}
 	if cfg.Desktop.CloseAction == "" {
 		cfg.Desktop.CloseAction = "ask"
 	}

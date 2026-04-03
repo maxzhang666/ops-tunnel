@@ -1,0 +1,14 @@
+services:
+  ops-tunnel:
+    image: ghcr.io/maxzhang666/ops-tunnel:latest
+    build: .
+    ports:
+      - "9876:9876"
+    volumes:
+      - tunnel-data:/data
+    environment:
+      - TUNNEL_TOKEN=
+    restart: unless-stopped
+
+volumes:
+  tunnel-data:

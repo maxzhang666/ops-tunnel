@@ -72,7 +72,7 @@ export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
         'cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-accent/30',
         state === 'error' && 'border-red-300'
       )}
-      onClick={() => navigate(`/tunnels/${tunnel.id}/edit`)}
+      onClick={() => navigate(`/tunnels/${tunnel.id}`)}
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">

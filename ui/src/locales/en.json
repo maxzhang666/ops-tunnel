@@ -211,5 +211,14 @@
     "mustBeGreaterThanOrEqualToMinMs": "Must be greater than or equal to minMs",
     "mustBeGreaterThanOrEqualTo1": "Must be greater than or equal to 1.0",
     "mustBeUnique": "Must be unique"
+  },
+  "close": {
+    "title": "Close Application",
+    "message": "What would you like to do?",
+    "runningTitle": "Tunnels Running",
+    "runningMessage": "{{count}} tunnel(s) are currently running. Are you sure you want to quit?",
+    "minimize": "Minimize to Tray",
+    "quit": "Quit",
+    "cancel": "Cancel"
   }
 }

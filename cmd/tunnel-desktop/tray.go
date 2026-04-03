@@ -23,7 +23,7 @@ func initTray(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Conf
 func onTrayReady(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) {
 	systray.SetIcon(iconGray)
 	systray.SetTitle("OpsTunnel")
-	systray.SetTooltip("OpsTunnel - SSH Tunnel Manager")
+	systray.SetTooltip(T("tray.tooltip"))
 
 	buildTrayMenu(app, eng, cfg)
 
@@ -65,8 +65,8 @@ func buildTrayMenu(app *App, eng engine.Engine, cfg *config.Config) {
 
 	systray.AddSeparator()
 
-	mStartAll := systray.AddMenuItem("Start All", "Start all tunnels")
-	mStopAll := systray.AddMenuItem("Stop All", "Stop all tunnels")
+	mStartAll := systray.AddMenuItem(T("tray.startAll"), "")
+	mStopAll := systray.AddMenuItem(T("tray.stopAll"), "")
 	go func() {
 		for {
 			select {
@@ -90,15 +90,15 @@ func buildTrayMenu(app *App, eng engine.Engine, cfg *config.Config) {
 		ti := trayTunnelItem{id: t.ID}
 
 		ti.menu = systray.AddMenuItem(tunnelLabel(t, status), "")
-		ti.start = ti.menu.AddSubMenuItem("Start", "Start this tunnel")
-		ti.stop = ti.menu.AddSubMenuItem("Stop", "Stop this tunnel")
-		ti.restart = ti.menu.AddSubMenuItem("Restart", "Restart this tunnel")
+		ti.start = ti.menu.AddSubMenuItem(T("tray.start"), "")
+		ti.stop = ti.menu.AddSubMenuItem(T("tray.stop"), "")
+		ti.restart = ti.menu.AddSubMenuItem(T("tray.restart"), "")
 
 		// Copy-address items for each mapping
 		for _, m := range t.Mappings {
 			addr := fmt.Sprintf("%s:%d", m.Listen.Host, m.Listen.Port)
 			ci := &trayCopyItem{
-				item: ti.menu.AddSubMenuItem(fmt.Sprintf("Copy %s", addr), "Copy to clipboard"),
+				item: ti.menu.AddSubMenuItem(fmt.Sprintf(T("tray.copy"), addr), ""),
 				addr: addr,
 			}
 			ti.copies = append(ti.copies, ci)
@@ -130,7 +130,7 @@ func buildTrayMenu(app *App, eng engine.Engine, cfg *config.Config) {
 
 	systray.AddSeparator()
 
-	mShow := systray.AddMenuItem("Show Window", "Show the main window")
+	mShow := systray.AddMenuItem(T("tray.show"), "")
 	go func() {
 		for range mShow.ClickedCh {
 			app.ShowWindow()
@@ -139,7 +139,7 @@ func buildTrayMenu(app *App, eng engine.Engine, cfg *config.Config) {
 
 	systray.AddSeparator()
 
-	mQuit := systray.AddMenuItem("Quit", "Quit OpsTunnel")
+	mQuit := systray.AddMenuItem(T("tray.quit"), "")
 	go func() {
 		<-mQuit.ClickedCh
 		slog.Info("quit requested from tray")

@@ -188,6 +188,15 @@
     "mappings": "映射",
     "uptime": "运行时间"
   },
+  "close": {
+    "title": "关闭 OpsTunnel",
+    "message": "您想要做什么？",
+    "runningTitle": "隧道运行中",
+    "runningMessage": "{{count}} 个隧道仍在运行，确定退出吗？",
+    "minimize": "最小化到托盘",
+    "quit": "退出",
+    "cancel": "取消"
+  },
   "validation": {
     "mustNotBeEmpty": "不能为空",
     "portRange": "必须在 1 到 65535 之间",

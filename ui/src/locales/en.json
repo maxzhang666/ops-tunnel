@@ -188,6 +188,15 @@
     "mappings": "Mappings",
     "uptime": "Uptime"
   },
+  "close": {
+    "title": "Close OpsTunnel",
+    "message": "What would you like to do?",
+    "runningTitle": "Tunnels Running",
+    "runningMessage": "{{count}} tunnel(s) are still running. Quit anyway?",
+    "minimize": "Minimize to Tray",
+    "quit": "Quit",
+    "cancel": "Cancel"
+  },
   "validation": {
     "mustNotBeEmpty": "Must not be empty",
     "portRange": "Must be between 1 and 65535",

@@ -70,7 +70,7 @@ jobs:
             goarch: amd64
             name: Windows-amd64
             ext: '.exe'
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             goos: linux
             goarch: amd64
             name: Linux-amd64

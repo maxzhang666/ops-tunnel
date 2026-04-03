@@ -93,29 +93,28 @@ func (e *eng) StartTunnel(ctx context.Context, id string) error {
 func (e *eng) StopTunnel(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	t, err := e.findTunnel(id)
-	if err != nil {
-		return err
+	sup, ok := e.sups[id]
+	if !ok {
+		return nil
 	}
-	sup, err := e.getOrCreateSupervisor(t)
-	if err != nil {
-		return err
-	}
-	return sup.Stop(ctx)
+	err := sup.Stop(ctx)
+	delete(e.sups, id)
+	return err
 }
 
 func (e *eng) RestartTunnel(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if sup, ok := e.sups[id]; ok {
+		sup.Stop(ctx)
+		delete(e.sups, id)
+	}
 	t, err := e.findTunnel(id)
 	if err != nil {
 		return err
 	}
 	sup, err := e.getOrCreateSupervisor(t)
 	if err != nil {
-		return err
-	}
-	if err := sup.Stop(ctx); err != nil {
 		return err
 	}
 	return sup.Start(ctx)

@@ -174,7 +174,7 @@ jobs:
         run: |
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
             go build -tags desktop,production -ldflags="-s -w ${WIN_LDFLAGS} -X main.version=${VERSION}" \
-            -o tunnel-desktop${{ matrix.ext }} ./cmd/tunnel-desktop
+            -o OpsTunnel${{ matrix.ext }} ./cmd/tunnel-desktop
         shell: bash
 
       # ── Package: macOS .dmg ──
@@ -185,7 +185,7 @@ jobs:
 
           mkdir -p OpsTunnel.app/Contents/MacOS
           mkdir -p OpsTunnel.app/Contents/Resources
-          cp tunnel-desktop OpsTunnel.app/Contents/MacOS/OpsTunnel
+          cp OpsTunnel OpsTunnel.app/Contents/MacOS/OpsTunnel
           chmod +x OpsTunnel.app/Contents/MacOS/OpsTunnel
           cp assets/Info.plist OpsTunnel.app/Contents/Info.plist
           cp assets/icon.icns OpsTunnel.app/Contents/Resources/icon.icns
@@ -204,13 +204,13 @@ jobs:
       # ── Package: Windows .zip ──
       - name: Package Windows .zip
         if: matrix.goos == 'windows'
-        run: 7z a "OpsTunnel-${VERSION}-${{ matrix.name }}.zip" tunnel-desktop.exe
+        run: 7z a "OpsTunnel-${VERSION}-${{ matrix.name }}.zip" OpsTunnel.exe
         shell: bash
 
       # ── Package: Linux .tar.gz ──
       - name: Package Linux .tar.gz
         if: matrix.goos == 'linux'
-        run: tar czf "OpsTunnel-${VERSION}-${{ matrix.name }}.tar.gz" tunnel-desktop
+        run: tar czf "OpsTunnel-${VERSION}-${{ matrix.name }}.tar.gz" OpsTunnel
 
       # ── Upload asset ──
       - name: Upload release asset

@@ -17,18 +17,36 @@ import (
 )
 
 func main() {
-	listen := flag.String("listen", "127.0.0.1:8080", "HTTP listen address")
-	dataDir := flag.String("data-dir", "./data", "data directory")
-	uiDir := flag.String("ui-dir", "", "static UI files directory")
-	token := flag.String("token", "", "bearer token for API auth")
+	listenFlag := flag.String("listen", "127.0.0.1:9876", "HTTP listen address")
+	dataDirFlag := flag.String("data-dir", "./data", "data directory")
+	uiDirFlag := flag.String("ui-dir", "", "static UI files directory")
+	tokenFlag := flag.String("token", "", "bearer token for API auth")
 	flag.Parse()
 
-	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
-		slog.Error("failed to create data dir", "path", *dataDir, "err", err)
+	explicit := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+
+	resolve := func(flagName, flagVal, envKey string) string {
+		if explicit[flagName] {
+			return flagVal
+		}
+		if v := os.Getenv(envKey); v != "" {
+			return v
+		}
+		return flagVal
+	}
+
+	listen := resolve("listen", *listenFlag, "TUNNEL_LISTEN")
+	dataDir := resolve("data-dir", *dataDirFlag, "TUNNEL_DATA_DIR")
+	uiDir := resolve("ui-dir", *uiDirFlag, "TUNNEL_UI_DIR")
+	token := resolve("token", *tokenFlag, "TUNNEL_TOKEN")
+
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		slog.Error("failed to create data dir", "path", dataDir, "err", err)
 		os.Exit(1)
 	}
 
-	store := config.NewFileStore(filepath.Join(*dataDir, "config.json"))
+	store := config.NewFileStore(filepath.Join(dataDir, "config.json"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -51,13 +69,13 @@ func main() {
 	)
 
 	bus := engine.NewEventBus()
-	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(*dataDir, "known_hosts.json"))
+	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(dataDir, "known_hosts.json"))
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
 	srv := api.NewServer(api.ServerConfig{
-		ListenAddr: *listen,
-		UIDir:      *uiDir,
-		Token:      *token,
+		ListenAddr: listen,
+		UIDir:      uiDir,
+		Token:      token,
 	}, store, cfg, eng, hostKeys)
 
 	go func() {

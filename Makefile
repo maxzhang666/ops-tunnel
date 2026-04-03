@@ -2,7 +2,7 @@
 
 # Development
 dev-server:
-	go run ./cmd/tunnel-server --listen 127.0.0.1:8080
+	go run ./cmd/tunnel-server --listen 127.0.0.1:9876
 
 dev-ui:
 	cd ui && pnpm dev

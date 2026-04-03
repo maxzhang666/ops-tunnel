@@ -17,10 +17,13 @@ import (
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	ListenAddr string
-	UIDir      string
-	UIEmbed    fs.FS
-	Token      string
+	ListenAddr  string
+	UIDir       string
+	UIEmbed     fs.FS
+	Token       string
+	Version     string
+	Mode        string
+	LogLevelVar *slog.LevelVar
 }
 
 // Server is the HTTP API server.
@@ -28,6 +31,7 @@ type Server struct {
 	cfg      ServerConfig
 	store    config.Store
 	eng      engine.Engine
+	bus      engine.EventBus
 	hostKeys tunnelssh.HostKeyStore
 	mu       sync.RWMutex
 	data     *config.Config
@@ -36,7 +40,7 @@ type Server struct {
 }
 
 // NewServer creates an API server with the given config store.
-func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng engine.Engine, hostKeys tunnelssh.HostKeyStore) *Server {
+func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng engine.Engine, bus engine.EventBus, hostKeys tunnelssh.HostKeyStore) *Server {
 	r := chi.NewRouter()
 	r.Use(SecurityHeaders)
 	r.Use(middleware.Logger)
@@ -47,6 +51,7 @@ func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng en
 		cfg:      cfg,
 		store:    store,
 		eng:      eng,
+		bus:      bus,
 		hostKeys: hostKeys,
 		data:     data,
 		router:   r,

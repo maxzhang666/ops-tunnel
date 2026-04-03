@@ -15,6 +15,7 @@ const (
 	EventChainConnected     EventType = "tunnel.chainConnected"
 	EventChainError         EventType = "tunnel.chainError"
 	EventCoreHealth         EventType = "core.health"
+	EventSettingsChanged    EventType = "settings.changed"
 )
 
 type Event struct {

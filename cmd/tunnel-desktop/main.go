@@ -19,9 +19,14 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+var version = "dev"
+
 func main() {
 	dataDir := flag.String("data-dir", "./data", "data directory")
 	flag.Parse()
+
+	logLevel := new(slog.LevelVar)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
 	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
 		slog.Error("failed to create data dir", "err", err)
@@ -61,9 +66,12 @@ func main() {
 	}
 
 	srv := api.NewServer(api.ServerConfig{
-		ListenAddr: fmt.Sprintf("127.0.0.1:%d", port),
-		UIEmbed:    uiFS,
-	}, store, cfg, eng, hostKeys)
+		ListenAddr:  fmt.Sprintf("127.0.0.1:%d", port),
+		UIEmbed:     uiFS,
+		Version:     version,
+		Mode:        "desktop",
+		LogLevelVar: logLevel,
+	}, store, cfg, eng, bus, hostKeys)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {

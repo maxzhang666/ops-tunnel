@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -10,6 +11,7 @@ import { DetailMappings } from '@/components/tunnel/detail-mappings'
 import { DetailConfig } from '@/components/tunnel/detail-config'
 
 export default function TunnelDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const { data: tunnel, isLoading } = useTunnel(id!)
   const { data: status } = useTunnelStatus(id!)
@@ -23,11 +25,11 @@ export default function TunnelDetailPage() {
   }, [id, queryClient]))
 
   if (isLoading) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <div className="py-8 text-center text-muted-foreground">{t('common.loading')}</div>
   }
 
   if (!tunnel) {
-    return <div className="py-8 text-center text-muted-foreground">Tunnel not found</div>
+    return <div className="py-8 text-center text-muted-foreground">{t('tunnel.tunnelNotFound')}</div>
   }
 
   return (
@@ -36,9 +38,9 @@ export default function TunnelDetailPage() {
 
       <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="mappings">Mappings</TabsTrigger>
-          <TabsTrigger value="config">Config</TabsTrigger>
+          <TabsTrigger value="overview">{t('tunnel.tabOverview')}</TabsTrigger>
+          <TabsTrigger value="mappings">{t('tunnel.tabMappings')}</TabsTrigger>
+          <TabsTrigger value="config">{t('tunnel.tabConfig')}</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
           <DetailOverview tunnel={tunnel} status={status} />

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Power, PowerOff, RotateCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,10 +17,25 @@ const statusColors: Record<string, string> = {
   stopping: 'bg-gray-400',
 }
 
-const modeStyles: Record<string, { bg: string; text: string; label: string }> = {
-  local: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Local' },
-  remote: { bg: 'bg-pink-50', text: 'text-pink-700', label: 'Remote' },
-  dynamic: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Dynamic' },
+const modeStyles: Record<string, { bg: string; text: string }> = {
+  local: { bg: 'bg-blue-50', text: 'text-blue-700' },
+  remote: { bg: 'bg-pink-50', text: 'text-pink-700' },
+  dynamic: { bg: 'bg-amber-50', text: 'text-amber-700' },
+}
+
+const modeLabels: Record<string, string> = {
+  local: 'tunnel.modeLabelLocal',
+  remote: 'tunnel.modeLabelRemote',
+  dynamic: 'tunnel.modeLabelDynamic',
+}
+
+const stateKeys: Record<string, string> = {
+  running: 'tunnel.stateRunning',
+  stopped: 'tunnel.stateStopped',
+  error: 'tunnel.stateError',
+  degraded: 'tunnel.stateDegraded',
+  starting: 'tunnel.stateStarting',
+  stopping: 'tunnel.stateStopping',
 }
 
 function formatUptime(since: string): string {
@@ -37,6 +53,7 @@ interface TunnelCardProps {
 }
 
 export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: sshConns } = useSSHConnections()
   const startMutation = useStartTunnel()
@@ -80,7 +97,7 @@ export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
             <span className={cn('inline-block h-2 w-2 rounded-full', statusColors[state])} />
             <span className="truncate text-[15px] font-semibold">{tunnel.name}</span>
             <Badge variant="secondary" className={cn(mode.bg, mode.text, 'text-[11px]')}>
-              {mode.label}
+              {t(modeLabels[tunnel.mode] ?? 'tunnel.modeLabelLocal')}
             </Badge>
           </div>
           <div className="mb-2 text-xs text-muted-foreground">{chainNames}</div>
@@ -99,22 +116,19 @@ export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
         </div>
         <div className="ml-4 flex flex-shrink-0 items-center gap-1.5">
           <span className="mr-2 text-xs text-muted-foreground">
-            {state === 'running' && status?.since ? `Running · ${formatUptime(status.since)}` : ''}
-            {state === 'stopped' ? 'Stopped' : ''}
-            {state === 'error' ? 'Error' : ''}
-            {state === 'degraded' ? 'Degraded' : ''}
-            {state === 'starting' ? 'Starting...' : ''}
-            {state === 'stopping' ? 'Stopping...' : ''}
+            {state === 'running' && status?.since
+              ? t('tunnel.runningUptime', { uptime: formatUptime(status.since) })
+              : state !== 'running' ? t(stateKeys[state] ?? 'tunnel.stateStopped') : ''}
           </span>
           {state === 'error' && (
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleRestart} disabled={isBusy} title="Restart">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleRestart} disabled={isBusy} title={t('common.restart')}>
               <RotateCw className="h-3.5 w-3.5" />
             </Button>
           )}
           <Button
             variant="outline" size="icon" className={cn("h-8 w-8", state === 'running' || state === 'degraded' ? 'text-green-600 hover:text-red-600' : 'text-muted-foreground hover:text-green-600')}
             onClick={handleControl} disabled={isBusy || isTransitioning}
-            title={state === 'stopped' || state === 'error' ? 'Start' : 'Stop'}
+            title={state === 'stopped' || state === 'error' ? t('common.start') : t('common.stop')}
           >
             {isBusy || isTransitioning ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

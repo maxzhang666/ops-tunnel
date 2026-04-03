@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useWsEvent } from '@/hooks/use-ws-events'
 import { cn } from '@/lib/utils'
 import type { TunnelEvent } from '@/types/api'
@@ -16,6 +17,7 @@ interface LogViewerProps {
 }
 
 export function LogViewer({ tunnelId }: LogViewerProps) {
+  const { t } = useTranslation()
   const [entries, setEntries] = useState<TunnelEvent[]>([])
   const [levelFilter, setLevelFilter] = useState<string>('all')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -49,16 +51,16 @@ export function LogViewer({ tunnelId }: LogViewerProps) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="text-sm font-medium">Recent Logs</span>
+        <span className="text-sm font-medium">{t('log.recentLogs')}</span>
         <select
           className="rounded border border-input bg-background px-2 py-0.5 text-xs"
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
         >
-          <option value="all">All</option>
-          <option value="info">Info</option>
-          <option value="warn">Warn</option>
-          <option value="error">Error</option>
+          <option value="all">{t('log.filterAll')}</option>
+          <option value="info">{t('log.filterInfo')}</option>
+          <option value="warn">{t('log.filterWarn')}</option>
+          <option value="error">{t('log.filterError')}</option>
         </select>
       </div>
       <div
@@ -67,7 +69,7 @@ export function LogViewer({ tunnelId }: LogViewerProps) {
         className="h-48 overflow-y-auto bg-[#0f0f0f] p-3 font-mono text-[11px] leading-relaxed text-gray-300"
       >
         {filtered.length === 0 && (
-          <div className="text-gray-600">No log entries yet...</div>
+          <div className="text-gray-600">{t('log.noEntries')}</div>
         )}
         {filtered.map((entry, i) => {
           const ts = new Date(entry.ts).toLocaleTimeString()

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { TunnelForm } from './tunnel-form'
 import { useUpdateTunnel } from '@/hooks/use-tunnels'
 import { toast } from 'sonner'
@@ -8,15 +9,16 @@ interface DetailConfigProps {
 }
 
 export function DetailConfig({ tunnel }: DetailConfigProps) {
+  const { t } = useTranslation()
   const updateMutation = useUpdateTunnel()
 
   return (
     <TunnelForm
       initialData={tunnel}
-      submitLabel="Save Changes"
+      submitLabel={t('common.saveChanges')}
       onSubmit={async (data) => {
         await updateMutation.mutateAsync({ id: tunnel.id, data })
-        toast.success('Tunnel configuration updated')
+        toast.success(t('tunnel.tunnelConfigUpdated'))
       }}
     />
   )

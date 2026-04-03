@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -6,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChainSelector } from './chain-selector'
 import { MappingEditor } from './mapping-editor'
 import { ApiError } from '@/lib/api'
+import { translateValidationErrors } from '@/lib/api-errors'
 import type { Tunnel, TunnelMode, Mapping } from '@/types/api'
 
 interface TunnelFormProps {
@@ -22,6 +24,7 @@ function defaultMapping(mode: TunnelMode): Mapping {
 }
 
 export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name ?? '')
   const [mode, setMode] = useState<TunnelMode>(initialData?.mode ?? 'local')
   const [chain, setChain] = useState<string[]>(initialData?.chain ?? [])
@@ -61,7 +64,8 @@ export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormPro
       await onSubmit(data)
     } catch (err) {
       if (err instanceof ApiError) {
-        const details = err.body.details?.map((d) => d.message).join(', ')
+        const translated = err.body.details ? translateValidationErrors(err.body.details) : []
+        const details = translated.map((d) => d.message).join(', ')
         setError(details || err.body.error)
       } else {
         setError(String(err))
@@ -76,68 +80,68 @@ export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormPro
       {error && <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       <Card>
-        <CardHeader><CardTitle>Basic</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('common.basic')}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t('common.name')}</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label>Mode</Label>
+            <Label>{t('tunnel.mode')}</Label>
             <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs" value={mode} onChange={(e) => handleModeChange(e.target.value as TunnelMode)}>
-              <option value="local">Local (-L)</option>
-              <option value="remote">Remote (-R)</option>
-              <option value="dynamic">Dynamic SOCKS5 (-D)</option>
+              <option value="local">{t('tunnel.modeLocal')}</option>
+              <option value="remote">{t('tunnel.modeRemote')}</option>
+              <option value="dynamic">{t('tunnel.modeDynamic')}</option>
             </select>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>SSH Chain</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('tunnel.sshChain')}</CardTitle></CardHeader>
         <CardContent><ChainSelector value={chain} onChange={setChain} /></CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Port Mappings</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('tunnel.portMappings')}</CardTitle></CardHeader>
         <CardContent><MappingEditor mode={mode} value={mappings} onChange={setMappings} /></CardContent>
       </Card>
 
       <div>
         <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdvanced(!showAdvanced)}>
-          {showAdvanced ? '▾ Hide Advanced' : '▸ Show Advanced'}
+          {showAdvanced ? `▾ ${t('common.hideAdvanced')}` : `▸ ${t('common.showAdvanced')}`}
         </Button>
       </div>
 
       {showAdvanced && (
         <Card>
-          <CardHeader><CardTitle>Policy</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('tunnel.policy')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={autoRestart} onChange={(e) => setAutoRestart(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-              <span className="text-sm">Auto Restart on Failure</span>
+              <span className="text-sm">{t('tunnel.autoRestart')}</span>
             </label>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Backoff Min (ms)</Label>
+                <Label className="text-xs">{t('tunnel.backoffMin')}</Label>
                 <Input type="number" value={backoffMin} onChange={(e) => setBackoffMin(Number(e.target.value))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Backoff Max (ms)</Label>
+                <Label className="text-xs">{t('tunnel.backoffMax')}</Label>
                 <Input type="number" value={backoffMax} onChange={(e) => setBackoffMax(Number(e.target.value))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Backoff Factor</Label>
+                <Label className="text-xs">{t('tunnel.backoffFactor')}</Label>
                 <Input type="number" step="0.1" value={backoffFactor} onChange={(e) => setBackoffFactor(Number(e.target.value))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Max Restarts Per Hour</Label>
+                <Label className="text-xs">{t('tunnel.maxRestartsPerHour')}</Label>
                 <Input type="number" value={maxRestarts} onChange={(e) => setMaxRestarts(Number(e.target.value))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Graceful Stop Timeout (ms)</Label>
+                <Label className="text-xs">{t('tunnel.gracefulStopTimeout')}</Label>
                 <Input type="number" value={gracefulTimeout} onChange={(e) => setGracefulTimeout(Number(e.target.value))} />
               </div>
             </div>
@@ -147,7 +151,7 @@ export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormPro
 
       <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur">
         <div className="flex justify-end gap-3">
-          <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : submitLabel}</Button>
+          <Button type="submit" disabled={submitting}>{submitting ? t('common.saving') : submitLabel}</Button>
         </div>
       </div>
     </form>

@@ -10,12 +10,13 @@ import (
 
 // App holds the Wails application state.
 type App struct {
-	ctx     context.Context
-	config  *config.Config
-	store   config.Store
-	eng     engine.Engine
-	bus     engine.EventBus
-	trayEnd func()
+	ctx      context.Context
+	config   *config.Config
+	store    config.Store
+	eng      engine.Engine
+	bus      engine.EventBus
+	trayEnd  func()
+	quitting bool
 }
 
 func NewApp(cfg *config.Config, store config.Store, eng engine.Engine, bus engine.EventBus) *App {
@@ -34,6 +35,9 @@ func (a *App) Startup(ctx context.Context) {
 
 // BeforeClose intercepts window close and delegates to the frontend dialog.
 func (a *App) BeforeClose(ctx context.Context) bool {
+	if a.quitting {
+		return false
+	}
 	if a.config.Desktop.CloseAction == "minimize" {
 		wailsrt.WindowHide(a.ctx)
 		return true
@@ -59,6 +63,7 @@ func (a *App) DoMinimize() {
 
 // DoQuit exits the application (called from frontend).
 func (a *App) DoQuit() {
+	a.quitting = true
 	wailsrt.Quit(a.ctx)
 }
 

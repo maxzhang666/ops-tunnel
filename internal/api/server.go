@@ -36,8 +36,10 @@ type Server struct {
 // NewServer creates an API server with the given config store.
 func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng engine.Engine, hostKeys tunnelssh.HostKeyStore) *Server {
 	r := chi.NewRouter()
+	r.Use(SecurityHeaders)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(CORS)
 
 	s := &Server{
 		cfg:      cfg,

@@ -88,10 +88,7 @@ func main() {
 		}
 	}
 
-	app := NewApp(cfg, store, eng)
-
-	// Start system tray in background
-	go startTray(app, eng, bus, cfg)
+	app := NewApp(cfg, store, eng, bus)
 
 	slog.Info("desktop starting", "api", fmt.Sprintf("http://localhost:%d", port))
 
@@ -108,6 +105,9 @@ func main() {
 		OnStartup:     app.Startup,
 		OnBeforeClose: app.BeforeClose,
 		OnShutdown: func(ctx context.Context) {
+			if app.trayEnd != nil {
+				app.trayEnd()
+			}
 			shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			eng.Shutdown(shutCtx)

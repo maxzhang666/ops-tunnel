@@ -16,6 +16,8 @@ import (
 	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
 )
 
+var version = "dev"
+
 func main() {
 	listenFlag := flag.String("listen", "127.0.0.1:9876", "HTTP listen address")
 	dataDirFlag := flag.String("data-dir", "./data", "data directory")
@@ -40,6 +42,9 @@ func main() {
 	dataDir := resolve("data-dir", *dataDirFlag, "TUNNEL_DATA_DIR")
 	uiDir := resolve("ui-dir", *uiDirFlag, "TUNNEL_UI_DIR")
 	token := resolve("token", *tokenFlag, "TUNNEL_TOKEN")
+
+	logLevel := new(slog.LevelVar)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		slog.Error("failed to create data dir", "path", dataDir, "err", err)
@@ -73,10 +78,13 @@ func main() {
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
 	srv := api.NewServer(api.ServerConfig{
-		ListenAddr: listen,
-		UIDir:      uiDir,
-		Token:      token,
-	}, store, cfg, eng, hostKeys)
+		ListenAddr:  listen,
+		UIDir:       uiDir,
+		Token:       token,
+		Version:     version,
+		Mode:        "server",
+		LogLevelVar: logLevel,
+	}, store, cfg, eng, bus, hostKeys)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {

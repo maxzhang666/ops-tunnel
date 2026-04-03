@@ -45,6 +45,9 @@ func (s *Server) registerRoutes() {
 		r.Post("/tunnels/{id}/stop", s.stopTunnel)
 		r.Post("/tunnels/{id}/restart", s.restartTunnel)
 		r.Get("/tunnels/{id}/status", s.getTunnelStatus)
+
+		r.Get("/settings", s.getSettings)
+		r.Patch("/settings", s.patchSettings)
 	})
 
 	if s.cfg.UIEmbed != nil {

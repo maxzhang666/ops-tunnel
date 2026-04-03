@@ -4,6 +4,8 @@ import SSHConnectionsPage from '@/pages/ssh-connections'
 import SSHConnectionNewPage from '@/pages/ssh-connection-new'
 import SSHConnectionEditPage from '@/pages/ssh-connection-edit'
 import TunnelsPage from '@/pages/tunnels'
+import TunnelNewPage from '@/pages/tunnel-new'
+import TunnelEditPage from '@/pages/tunnel-edit'
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +16,8 @@ export const router = createBrowserRouter([
       { path: 'ssh/new', element: <SSHConnectionNewPage /> },
       { path: 'ssh/:id', element: <SSHConnectionEditPage /> },
       { path: 'tunnels', element: <TunnelsPage /> },
+      { path: 'tunnels/new', element: <TunnelNewPage /> },
+      { path: 'tunnels/:id/edit', element: <TunnelEditPage /> },
     ],
   },
 ])

@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/layouts/app-layout'
 import SSHConnectionsPage from '@/pages/ssh-connections'
+import SSHConnectionNewPage from '@/pages/ssh-connection-new'
+import SSHConnectionEditPage from '@/pages/ssh-connection-edit'
 import TunnelsPlaceholder from '@/pages/tunnels-placeholder'
 
 export const router = createBrowserRouter([
@@ -9,6 +11,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/ssh" replace /> },
       { path: 'ssh', element: <SSHConnectionsPage /> },
+      { path: 'ssh/new', element: <SSHConnectionNewPage /> },
+      { path: 'ssh/:id', element: <SSHConnectionEditPage /> },
       { path: 'tunnels', element: <TunnelsPlaceholder /> },
     ],
   },

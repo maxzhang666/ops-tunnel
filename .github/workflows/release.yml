@@ -1,0 +1,262 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      build_server:
+        description: 'Also build server binaries'
+        required: false
+        default: false
+        type: boolean
+      docker_platform:
+        description: 'Docker platform'
+        required: false
+        default: 'linux/amd64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/arm64
+          - linux/amd64,linux/arm64
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GO_VERSION: '1.26'
+  NODE_VERSION: '22'
+
+jobs:
+  # ─── Job 1: Create draft release ───────────────────────────
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          name: v${{ steps.version.outputs.version }}
+
+  # ─── Job 2: Build desktop (matrix) ────────────────────────
+  build-desktop:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            name: macOS
+            ext: ''
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            name: macOS-arm64
+            ext: ''
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            name: Windows-amd64
+            ext: '.exe'
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            name: Linux-amd64
+            ext: ''
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.create-release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install UI dependencies
+        run: cd ui && pnpm install --frozen-lockfile
+
+      - name: Build UI
+        run: cd ui && pnpm build
+
+      - name: Copy UI to desktop
+        run: |
+          mkdir -p cmd/tunnel-desktop/dist
+          cp -r ui/dist/* cmd/tunnel-desktop/dist/
+        shell: bash
+
+      # ── Linux dependencies ──
+      - name: Install Linux dependencies
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev pkg-config
+
+      # ── Windows dependencies ──
+      - name: Install Windows dependencies
+        if: matrix.goos == 'windows'
+        run: choco install mingw -y
+
+      # ── Build binary ──
+      - name: Build desktop binary
+        run: |
+          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o tunnel-desktop${{ matrix.ext }} ./cmd/tunnel-desktop
+        shell: bash
+
+      # ── Package: macOS .dmg ──
+      - name: Package macOS .dmg
+        if: matrix.goos == 'darwin'
+        run: |
+          sed -i '' "s/0\.0\.0/${VERSION}/g" assets/Info.plist
+
+          mkdir -p OpsTunnel.app/Contents/MacOS
+          mkdir -p OpsTunnel.app/Contents/Resources
+          cp tunnel-desktop OpsTunnel.app/Contents/MacOS/OpsTunnel
+          chmod +x OpsTunnel.app/Contents/MacOS/OpsTunnel
+          cp assets/Info.plist OpsTunnel.app/Contents/Info.plist
+          cp assets/icon.icns OpsTunnel.app/Contents/Resources/icon.icns
+
+          brew install create-dmg
+          create-dmg \
+            --volname "OpsTunnel" \
+            --window-size 600 400 \
+            --icon-size 128 \
+            --icon "OpsTunnel.app" 150 190 \
+            --app-drop-link 450 190 \
+            --no-internet-enable \
+            "OpsTunnel-${VERSION}-${{ matrix.name }}.dmg" \
+            OpsTunnel.app
+
+      # ── Package: Windows .zip ──
+      - name: Package Windows .zip
+        if: matrix.goos == 'windows'
+        run: 7z a "OpsTunnel-${VERSION}-${{ matrix.name }}.zip" tunnel-desktop.exe
+        shell: bash
+
+      # ── Package: Linux .tar.gz ──
+      - name: Package Linux .tar.gz
+        if: matrix.goos == 'linux'
+        run: tar czf "OpsTunnel-${VERSION}-${{ matrix.name }}.tar.gz" tunnel-desktop
+
+      # ── Upload asset ──
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            OpsTunnel-*.dmg
+            OpsTunnel-*.zip
+            OpsTunnel-*.tar.gz
+
+  # ─── Job 3: Build Docker ───────────────────────────────────
+  build-docker:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64' || inputs.docker_platform || 'linux/amd64' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── Job 4: Build server (optional) ────────────────────────
+  build-server:
+    if: ${{ inputs.build_server == true }}
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.create-release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build UI (for embedded assets)
+        run: |
+          corepack enable
+          cd ui && pnpm install --frozen-lockfile && pnpm build
+
+      - name: Build server binary
+        run: |
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o tunnel-server ./cmd/tunnel-server
+          tar czf "tunnel-server-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" tunnel-server
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: tunnel-server-*.tar.gz
+
+  # ─── Job 5: Publish release ────────────────────────────────
+  publish-release:
+    needs: [build-desktop, build-docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: false

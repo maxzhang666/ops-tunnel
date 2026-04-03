@@ -8,3 +8,5 @@ ui/dist/
 *.out
 docs
 .claude
+.superpowers
+tunnel-*

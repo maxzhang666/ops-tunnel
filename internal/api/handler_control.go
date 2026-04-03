@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -17,6 +18,7 @@ func (s *Server) startTunnel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
+	s.setTunnelEnabled(r.Context(), id, true)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -30,6 +32,7 @@ func (s *Server) stopTunnel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
+	s.setTunnelEnabled(r.Context(), id, false)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -43,7 +46,21 @@ func (s *Server) restartTunnel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
+	s.setTunnelEnabled(r.Context(), id, true)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// setTunnelEnabled persists the tunnel enabled state to config.
+func (s *Server) setTunnelEnabled(ctx context.Context, id string, enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Tunnels {
+		if s.data.Tunnels[i].ID == id {
+			s.data.Tunnels[i].Enabled = enabled
+			s.saveConfig(ctx)
+			return
+		}
+	}
 }
 
 func (s *Server) getTunnelStatus(w http.ResponseWriter, r *http.Request) {

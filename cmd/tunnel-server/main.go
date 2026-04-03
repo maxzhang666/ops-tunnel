@@ -93,6 +93,13 @@ func main() {
 
 	srv := api.NewServer(serverCfg, store, cfg, eng, bus, hostKeys)
 
+	// Restore previously enabled tunnels
+	for _, t := range cfg.Tunnels {
+		if t.Enabled {
+			go eng.StartTunnel(context.Background(), t.ID)
+		}
+	}
+
 	go func() {
 		if err := srv.Run(ctx); err != nil {
 			slog.Error("server error", "err", err)

@@ -81,9 +81,9 @@ func main() {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// AutoStart tunnels
+	// Restore previously enabled tunnels
 	for _, t := range cfg.Tunnels {
-		if t.Policy.AutoStart {
+		if t.Enabled {
 			go eng.StartTunnel(context.Background(), t.ID)
 		}
 	}

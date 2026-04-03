@@ -10,7 +10,8 @@ docs
 .claude
 CLAUDE.md
 .superpowers
-tunnel-*
+/tunnel-server
+/tunnel-desktop
 PLAN.md
 init.md
 cmd/tunnel-desktop/dist

@@ -242,6 +242,9 @@ jobs:
           corepack enable
           cd ui && pnpm install --frozen-lockfile && pnpm build
 
+      - name: Copy UI to server
+        run: cp -r ui/dist cmd/tunnel-server/dist
+
       - name: Build server binary
         run: |
           CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \

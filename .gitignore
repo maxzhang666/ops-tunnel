@@ -15,4 +15,5 @@ CLAUDE.md
 PLAN.md
 init.md
 cmd/tunnel-desktop/dist
+cmd/tunnel-server/dist
 .idea

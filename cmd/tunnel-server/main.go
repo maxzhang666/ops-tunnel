@@ -77,14 +77,21 @@ func main() {
 	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(dataDir, "known_hosts.json"))
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
-	srv := api.NewServer(api.ServerConfig{
+	serverCfg := api.ServerConfig{
 		ListenAddr:  listen,
 		UIDir:       uiDir,
 		Token:       token,
 		Version:     version,
 		Mode:        "server",
 		LogLevelVar: logLevel,
-	}, store, cfg, eng, bus, hostKeys)
+	}
+	if uiDir == "" {
+		if uiFS, err := frontendFS(); err == nil {
+			serverCfg.UIEmbed = uiFS
+		}
+	}
+
+	srv := api.NewServer(serverCfg, store, cfg, eng, bus, hostKeys)
 
 	go func() {
 		if err := srv.Run(ctx); err != nil {

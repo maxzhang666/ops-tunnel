@@ -23,6 +23,15 @@ build-server:
 
 build: build-ui build-server
 
+# Desktop
+build-desktop: build-ui
+	cp -r ui/dist cmd/tunnel-desktop/dist
+	go build -o bin/tunnel-desktop ./cmd/tunnel-desktop
+
+dev-desktop: build-ui
+	cp -r ui/dist cmd/tunnel-desktop/dist
+	go run ./cmd/tunnel-desktop
+
 # Clean
 clean:
-	rm -rf bin/ ui/dist/
+	rm -rf bin/ ui/dist/ cmd/tunnel-desktop/dist

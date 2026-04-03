@@ -211,5 +211,14 @@
     "mustBeGreaterThanOrEqualToMinMs": "必须大于或等于最小值",
     "mustBeGreaterThanOrEqualTo1": "必须大于或等于 1.0",
     "mustBeUnique": "必须唯一"
+  },
+  "close": {
+    "title": "关闭应用",
+    "message": "请选择操作",
+    "runningTitle": "隧道运行中",
+    "runningMessage": "当前有 {{count}} 个隧道正在运行，确定要退出吗？",
+    "minimize": "最小化到托盘",
+    "quit": "退出",
+    "cancel": "取消"
   }
 }

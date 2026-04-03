@@ -153,9 +153,15 @@ func (e *eng) Events() EventBus { return e.bus }
 func (e *eng) Shutdown(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	var wg sync.WaitGroup
 	for _, sup := range e.sups {
-		sup.Stop(ctx)
+		wg.Add(1)
+		go func(s *tunnelSupervisor) {
+			defer wg.Done()
+			s.Stop(ctx)
+		}(sup)
 	}
+	wg.Wait()
 	e.sups = make(map[string]*tunnelSupervisor)
 	return nil
 }

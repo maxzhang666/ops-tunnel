@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App holds the Wails application state.
@@ -33,55 +32,38 @@ func (a *App) Startup(ctx context.Context) {
 	a.trayEnd = initTray(a, a.eng, a.bus, a.config)
 }
 
+// BeforeClose intercepts window close and delegates to the frontend dialog.
 func (a *App) BeforeClose(ctx context.Context) bool {
-	switch a.config.Desktop.CloseAction {
-	case "minimize":
-		runtime.WindowHide(a.ctx)
+	if a.config.Desktop.CloseAction == "minimize" {
+		wailsrt.WindowHide(a.ctx)
 		return true
-	case "quit":
-		return a.confirmQuitIfRunning()
-	default: // "ask"
-		result, _ := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
-			Type:          runtime.QuestionDialog,
-			Title:         "Close OpsTunnel",
-			Message:       "What would you like to do?",
-			Buttons:       []string{"Minimize to Tray", "Quit", "Cancel"},
-			DefaultButton: "Minimize to Tray",
-		})
-		switch result {
-		case "Minimize to Tray":
-			runtime.WindowHide(a.ctx)
-			return true
-		case "Quit":
-			return a.confirmQuitIfRunning()
-		default:
-			return true
-		}
 	}
-}
-
-func (a *App) confirmQuitIfRunning() bool {
+	// Emit event for frontend to show the styled close dialog
 	running := 0
 	for _, s := range a.eng.ListStatus() {
 		if s.State == engine.StateRunning || s.State == engine.StateDegraded {
 			running++
 		}
 	}
-	if running == 0 {
-		return false
-	}
-	result, _ := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
-		Type:          runtime.WarningDialog,
-		Title:         "Tunnels Running",
-		Message:       fmt.Sprintf("%d tunnel(s) are still running. Quit anyway?", running),
-		Buttons:       []string{"Quit", "Cancel"},
-		DefaultButton: "Cancel",
+	wailsrt.EventsEmit(a.ctx, "app:close-requested", map[string]any{
+		"action":  a.config.Desktop.CloseAction,
+		"running": running,
 	})
-	return result != "Quit"
+	return true // always prevent default close, frontend decides
+}
+
+// DoMinimize hides the window (called from frontend).
+func (a *App) DoMinimize() {
+	wailsrt.WindowHide(a.ctx)
+}
+
+// DoQuit exits the application (called from frontend).
+func (a *App) DoQuit() {
+	wailsrt.Quit(a.ctx)
 }
 
 func (a *App) ShowWindow() {
-	runtime.WindowShow(a.ctx)
-	runtime.WindowSetAlwaysOnTop(a.ctx, true)
-	runtime.WindowSetAlwaysOnTop(a.ctx, false)
+	wailsrt.WindowShow(a.ctx)
+	wailsrt.WindowSetAlwaysOnTop(a.ctx, true)
+	wailsrt.WindowSetAlwaysOnTop(a.ctx, false)
 }

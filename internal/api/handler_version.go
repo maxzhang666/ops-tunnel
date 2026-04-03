@@ -10,6 +10,7 @@ import (
 type versionResponse struct {
 	Version string         `json:"version"`
 	Mode    string         `json:"mode"`
+	WsPort  int            `json:"wsPort,omitempty"`
 	Latest  *latestRelease `json:"latest"`
 }
 
@@ -32,11 +33,13 @@ const (
 
 func (s *Server) getVersion(w http.ResponseWriter, r *http.Request) {
 	latest := fetchLatestRelease()
-	writeJSON(w, http.StatusOK, versionResponse{
+	resp := versionResponse{
 		Version: s.cfg.Version,
 		Mode:    s.cfg.Mode,
+		WsPort:  s.cfg.WsPort,
 		Latest:  latest,
-	})
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func fetchLatestRelease() *latestRelease {

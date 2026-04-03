@@ -8,11 +8,16 @@ export class EventSocket {
   private reconnectDelay = 1000
   private closed = false
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private wsUrl: string | null = null
+
+  /** Set a direct WebSocket URL (used in desktop mode to bypass Wails asset server). */
+  setUrl(url: string): void {
+    this.wsUrl = url
+  }
 
   connect(): void {
     this.closed = false
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${protocol}//${location.host}/ws`
+    const url = this.wsUrl ?? `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`
 
     this.ws = new WebSocket(url)
 

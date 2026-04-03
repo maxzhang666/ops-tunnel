@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/layouts/app-layout'
+import i18n from '@/lib/i18n'
 
 const SSHConnectionsPage = lazy(() => import('@/pages/ssh-connections'))
 const SSHConnectionNewPage = lazy(() => import('@/pages/ssh-connection-new'))
@@ -17,7 +18,7 @@ function LazyPage({ children }: { children: React.ReactNode }) {
     <Suspense
       fallback={
         <div className="flex items-center justify-center py-20">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-muted-foreground">{i18n.t('common.loading')}</div>
         </div>
       }
     >

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 import { Cable, Link2, Settings } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
@@ -5,19 +6,20 @@ import { cn } from '@/lib/utils'
 import { useVersion } from '@/hooks/use-settings'
 
 const navItems = [
-  { to: '/ssh', label: 'SSH Connections', icon: Link2 },
-  { to: '/tunnels', label: 'Tunnels', icon: Cable },
+  { to: '/ssh', labelKey: 'sidebar.sshConnections', icon: Link2 },
+  { to: '/tunnels', labelKey: 'sidebar.tunnels', icon: Cable },
 ]
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const { data: version } = useVersion()
   const hasUpdate = version?.latest && version.latest.version !== version.version && version.version !== 'dev'
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col rounded-l-xl border-r bg-background">
       <div className="px-4 py-5">
-        <h1 className="text-lg font-bold">OpsTunnel</h1>
-        <p className="text-xs text-muted-foreground">SSH Tunnel Manager</p>
+        <h1 className="text-lg font-bold">{t('sidebar.title')}</h1>
+        <p className="text-xs text-muted-foreground">{t('sidebar.subtitle')}</p>
       </div>
       <Separator />
       <nav className="flex-1 space-y-1 px-2 py-3">
@@ -35,7 +37,7 @@ export function Sidebar() {
             }
           >
             <item.icon className="h-4 w-4" />
-            {item.label}
+            {t(item.labelKey)}
           </NavLink>
         ))}
       </nav>
@@ -53,7 +55,7 @@ export function Sidebar() {
           }
         >
           <Settings className="h-4 w-4" />
-          Settings
+          {t('sidebar.settings')}
           {hasUpdate && (
             <span className="ml-auto h-2 w-2 rounded-full bg-destructive" />
           )}

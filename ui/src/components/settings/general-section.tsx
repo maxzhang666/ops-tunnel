@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+import { SUPPORTED_LANGUAGES } from '@/lib/i18n'
 import type { Settings, VersionInfo } from '@/types/api'
 import { SettingRow, SettingSection } from './setting-row'
 
@@ -15,9 +18,16 @@ const LOG_LEVELS = [
 ]
 
 export function GeneralSection({ settings, version, onUpdate }: Props) {
+  const { t } = useTranslation()
+
+  const handleLanguageChange = (lng: string) => {
+    i18n.changeLanguage(lng)
+    onUpdate({ general: { language: lng } })
+  }
+
   return (
-    <SettingSection title="General">
-      <SettingRow label="Log Level">
+    <SettingSection title={t('settings.general')}>
+      <SettingRow label={t('settings.logLevel')}>
         <select
           className="rounded-md border bg-background px-3 py-1.5 text-sm"
           value={settings.general.logLevel}
@@ -29,18 +39,20 @@ export function GeneralSection({ settings, version, onUpdate }: Props) {
         </select>
       </SettingRow>
 
-      <SettingRow label="Language" description="Coming soon">
+      <SettingRow label={t('settings.language')}>
         <select
-          className="rounded-md border bg-muted px-3 py-1.5 text-sm text-muted-foreground"
-          value="en"
-          disabled
+          className="rounded-md border bg-background px-3 py-1.5 text-sm"
+          value={i18n.language}
+          onChange={(e) => handleLanguageChange(e.target.value)}
         >
-          <option value="en">English</option>
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>{l.label}</option>
+          ))}
         </select>
       </SettingRow>
 
       {version?.mode === 'desktop' && (
-        <SettingRow label="Auto Start" description="Launch on system startup">
+        <SettingRow label={t('settings.autoStart')} description={t('settings.autoStartDesc')}>
           <button
             type="button"
             role="switch"

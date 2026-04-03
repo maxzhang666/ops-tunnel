@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Settings } from '@/types/api'
 import { SettingRow, SettingSection } from './setting-row'
 
@@ -6,16 +7,18 @@ interface Props {
   onUpdate: (patch: Record<string, unknown>) => void
 }
 
-const CLOSE_ACTIONS = [
-  { value: 'ask', label: 'Ask' },
-  { value: 'minimize', label: 'Minimize' },
-  { value: 'quit', label: 'Quit' },
-]
-
 export function DesktopSection({ settings, onUpdate }: Props) {
+  const { t } = useTranslation()
+
+  const CLOSE_ACTIONS = [
+    { value: 'ask', label: t('settings.closeAsk') },
+    { value: 'minimize', label: t('settings.closeMinimize') },
+    { value: 'quit', label: t('settings.closeQuit') },
+  ]
+
   return (
-    <SettingSection title="Desktop">
-      <SettingRow label="Close Action" description="What happens when you close the window">
+    <SettingSection title={t('settings.desktop')}>
+      <SettingRow label={t('settings.closeAction')} description={t('settings.closeActionDesc')}>
         <select
           className="rounded-md border bg-background px-3 py-1.5 text-sm"
           value={settings.desktop.closeAction}

@@ -65,7 +65,35 @@ Docker/Headless 模式（单进程）：
 
 **关键约束：前端统一走 HTTP + WebSocket，不使用 Wails binding。两个入口共享 `internal/` 全部核心代码。**
 
-### 3.2 目录结构
+### 3.2 数据模型（核心变更）
+
+**SSH 连接独立管理，Tunnel 通过引用组合链路。Tunnel 只有一种模式（L/R/D），但可包含多个同类型映射。**
+
+```
+SSHConnection (独立实体，可复用)
+  ├── id, name
+  ├── endpoint (host:port)
+  ├── auth (password / privateKey)
+  ├── hostKeyVerification, keepAlive, dialTimeout
+  └── 支持独立 "Test Connection"
+
+Tunnel (引用 SSH 连接)
+  ├── id, name
+  ├── mode: "local" | "remote" | "dynamic"  ← 单一模式
+  ├── chain: [sshConnId1, sshConnId2, ...]   ← 引用 SSH 连接 ID，有序
+  ├── mappings: [Mapping1, Mapping2, ...]     ← 同类型的多个端口映射
+  └── policy: autoStart, autoRestart, backoff
+  注：无 enabled 字段，隧道只有 running/stopped 两种运行态
+
+Config (持久化)
+  ├── version: 1
+  ├── sshConnections: [SSHConnection, ...]
+  └── tunnels: [Tunnel, ...]
+```
+
+**每个 Tunnel 独立建立 SSH 会话**——即使两个 Tunnel 引用相同的 SSH 连接链路，它们各自建立独立的 SSH 连接，互不影响。
+
+### 3.3 目录结构
 
 ```
 ops-tunnel/
@@ -76,7 +104,7 @@ ops-tunnel/
 │       └── main.go
 ├── internal/
 │   ├── config/                  # 配置层
-│   │   ├── model.go             # Tunnel/Hop/Forward/Policy 数据结构
+│   │   ├── model.go             # SSHConnection/Tunnel/Mapping/Policy 数据结构
 │   │   ├── defaults.go          # 默认值填充
 │   │   ├── validate.go          # 校验规则
 │   │   ├── store.go             # JSON 文件存储（原子写入）
@@ -87,20 +115,22 @@ ops-tunnel/
 │   │   ├── state.go             # 运行时状态类型
 │   │   └── events.go            # EventBus（发布/订阅）
 │   ├── ssh/                     # SSH 连接层
-│   │   ├── chain.go             # 多跳链路构建
+│   │   ├── chain.go             # 多跳链路构建（根据 SSHConnection ID 列表）
 │   │   ├── auth.go              # config.Auth → ssh.AuthMethod
 │   │   ├── hostkey.go           # Host Key 验证策略
-│   │   └── keepalive.go         # KeepAlive 心跳
+│   │   ├── keepalive.go         # KeepAlive 心跳
+│   │   └── test.go              # 独立连接测试（Test Connection）
 │   ├── forward/                 # 转发层
 │   │   ├── forward.go           # Forward 接口
 │   │   ├── local.go             # Local 转发 (-L)
 │   │   ├── remote.go            # Remote 转发 (-R)
 │   │   ├── dynamic.go           # Dynamic SOCKS5 (-D)
-│   │   ├── socks5.go            # SOCKS5 协议最小实现
+│   │   ├── socks5.go            # SOCKS5 协议实现（CONNECT + BIND）
 │   │   └── acl.go               # CIDR 白名单/黑名单
 │   └── api/                     # API 层
 │       ├── server.go            # HTTP server 启动/关闭
 │       ├── routes.go            # 路由注册
+│       ├── handler_ssh.go       # SSH Connection CRUD + Test
 │       ├── handler_tunnel.go    # Tunnel CRUD
 │       ├── handler_control.go   # start/stop/restart/status
 │       ├── ws.go                # WebSocket 事件推送
@@ -109,13 +139,15 @@ ops-tunnel/
 │   ├── src/
 │   │   ├── api/                 # API 客户端 + WebSocket hook
 │   │   ├── components/          # shadcn/ui 组件
-│   │   ├── pages/               # 页面
+│   │   ├── pages/
+│   │   │   ├── ssh/             # SSH 连接管理
+│   │   │   ├── tunnels/         # Tunnel 列表 + 详情
+│   │   │   └── settings/        # 设置
 │   │   ├── hooks/               # 自定义 hooks
 │   │   ├── lib/                 # 工具函数
 │   │   ├── types/               # TypeScript 类型（与 Go model 对应）
 │   │   └── App.tsx
 │   ├── package.json
-│   ├── tailwind.config.ts
 │   ├── tsconfig.json
 │   └── vite.config.ts
 ├── build/
@@ -128,7 +160,7 @@ ops-tunnel/
 └── Makefile
 ```
 
-### 3.3 数据流
+### 3.4 数据流
 
 ```
 用户操作 (UI)
@@ -136,11 +168,12 @@ ops-tunnel/
 API Handler
     ↓ engine.StartTunnel(id)
 Engine
+    ├→ 从 config 中解析 tunnel.chain → 查找对应 SSHConnection 列表
     ↓ supervisor.Start()
 Supervisor
-    ├→ ssh.BuildChain(hops, target)     # 建立多跳 SSH 链路
-    ├→ forward.Start(targetClient)       # 启动转发规则
-    └→ eventBus.Publish(stateChanged)    # 发布状态变更事件
+    ├→ ssh.BuildChain(sshConnections)    # 根据引用的 SSH 连接建立多跳链路
+    ├→ forward.Start(targetClient)        # 启动转发规则（同一模式的多个映射）
+    └→ eventBus.Publish(stateChanged)     # 发布状态变更事件
                 ↓
          WebSocket 推送到前端
                 ↓
@@ -173,18 +206,28 @@ Supervisor
 
 ### Phase 1：Config 模型 + 存储 + 校验
 
-**目标：** 定义完整的数据结构，能从 JSON 文件加载/保存配置，通过 API 进行 CRUD。
+**目标：** 定义完整的数据结构（SSH 连接 + Tunnel），能从 JSON 文件加载/保存配置，通过 API 进行 CRUD。
 
 **产物：**
-- `internal/config/model.go`：Tunnel、Hop、Target、Forward、Policy、Auth 等完整结构体
+- `internal/config/model.go`：SSHConnection、Tunnel、Mapping、Policy、Auth 等完整结构体
 - `internal/config/defaults.go`：缺省值填充（如 DialTimeout 默认 10s，KeepAlive 默认 15s）
 - `internal/config/validate.go`：结构化校验错误
 - `internal/config/store.go`：FileStore，原子写入（temp → fsync → rename）
 - `internal/config/redact.go`：脱敏函数，替换 password/keyPem/passphrase 为 `"***"`
-- `internal/api/handler_tunnel.go`：CRUD 端点
+- `internal/api/handler_ssh.go`：SSH Connection CRUD 端点
+- `internal/api/handler_tunnel.go`：Tunnel CRUD 端点
 
 **API 端点：**
 ```
+# SSH Connection 管理
+GET    /api/v1/ssh-connections           # 列表（脱敏）
+POST   /api/v1/ssh-connections           # 创建
+GET    /api/v1/ssh-connections/{id}      # 详情（脱敏）
+PUT    /api/v1/ssh-connections/{id}      # 全量更新
+DELETE /api/v1/ssh-connections/{id}      # 删除（检查是否被 Tunnel 引用）
+POST   /api/v1/ssh-connections/{id}/test # 测试连接
+
+# Tunnel 管理
 GET    /api/v1/tunnels          # 列表（脱敏）
 POST   /api/v1/tunnels          # 创建
 GET    /api/v1/tunnels/{id}     # 详情（脱敏）
@@ -193,15 +236,25 @@ DELETE /api/v1/tunnels/{id}     # 删除
 ```
 
 **校验规则：**
-- ID 非空且全局唯一（创建时自动生成）
+- ID 非空且全局唯一（创建时自动生成 xid）
 - Endpoint.Port ∈ [1, 65535]
 - Auth.Type 决定必填字段（password 需要 Password，privateKey 需要 PrivateKey）
-- Forward: local/dynamic 需要 Listen；remote 需要 Listen + Connect
+- Tunnel.Mode 必须是 local/remote/dynamic 之一
+- Tunnel.Chain 中的 SSH 连接 ID 必须全部存在
+- Tunnel.Chain 至少包含一个 SSH 连接
+- Mapping 校验取决于 Tunnel.Mode：
+  - local: 需要 Listen + Connect
+  - remote: 需要 Listen + Connect
+  - dynamic: 需要 Listen；Socks5 配置必须存在
 - SOCKS5 安全警告：listen 0.0.0.0 + auth none + allowCIDRs 包含 0.0.0.0/0 → 返回 warning
+- 删除 SSH 连接时：如果被任何 Tunnel 的 chain 引用，返回 409 Conflict
 
 **验收：**
-- 启动时 `data/config.json` 不存在则自动创建空配置 `{"version":1,"tunnels":[]}`
-- `POST /tunnels` 创建隧道 → `GET /tunnels` 能列出（敏感字段已脱敏）
+- 启动时 `data/config.json` 不存在则自动创建空配置 `{"version":1,"sshConnections":[],"tunnels":[]}`
+- `POST /ssh-connections` 创建 SSH 连接 → `GET /ssh-connections` 列出（敏感字段脱敏）
+- `POST /tunnels` 创建 Tunnel（引用已有 SSH 连接）→ `GET /tunnels` 列出
+- Tunnel 引用不存在的 SSH 连接 ID → 400 校验错误
+- 删除被引用的 SSH 连接 → 409 Conflict
 - 重启后数据仍在
 - 校验失败返回 400 + 结构化错误
 
@@ -415,73 +468,180 @@ error → (手动 restart) → starting → running
 
 ### Phase 9：Frontend（React + shadcn/ui）
 
-**目标：** 可视化管理界面。
+**目标：** 可视化管理界面，左右分栏布局，SSH 连接独立管理，Tunnel 独立详情页。
 
-**页面结构：**
+**整体布局：**
+```
+┌──────────┬─────────────────────────────────────┐
+│  LOGO    │                                     │
+│          │  内容区域（路由驱动）                  │
+│ ──────── │                                     │
+│          │  /ssh           → SSH 连接列表        │
+│ SSH 连接  │  /ssh/new       → 创建 SSH 连接       │
+│          │  /ssh/:id       → 编辑 SSH 连接       │
+│ Tunnels  │  /tunnels       → Tunnel 列表         │
+│          │  /tunnels/new   → 创建 Tunnel         │
+│ ──────── │  /tunnels/:id   → Tunnel 详情页       │
+│          │                                     │
+│ Settings │                                     │
+│  (底部)   │                                     │
+└──────────┴─────────────────────────────────────┘
+```
+
+**SSH 连接列表页（/ssh）：**
 ```
 ┌─────────────────────────────────────────────┐
-│  OpsTunnel                        [+ New]   │
-├──────────┬──────────────────────────────────┤
-│          │  Overview | Forwards | Config | Logs │
-│ tunnel-1 │──────────────────────────────────│
-│  ● running│                                  │
-│          │  Chain:                           │
-│ tunnel-2 │  [hop1 ●] → [hop2 ●] → [target ●] │
-│  ○ stopped│                                  │
-│          │  Forwards:                        │
-│ tunnel-3 │  L 0.0.0.0:15432 → 127.0.0.1:5432 ● │
-│  ✕ error │  D 0.0.0.0:1080 (SOCKS5) ●       │
-│          │                                   │
-│          │  [Start] [Stop] [Restart]         │
-└──────────┴──────────────────────────────────┘
+│ SSH Connections                    [+ New]   │
+├─────────────────────────────────────────────┤
+│ Name          Host:Port       Auth   Action  │
+│ ─────────────────────────────────────────── │
+│ prod-bastion  1.2.3.4:22      Key   [Test]  │
+│ inner-jump    10.0.0.5:22     Pwd   [Test]  │
+│ target-db     10.0.1.20:22    Key   [Test]  │
+└─────────────────────────────────────────────┘
+```
+
+**Tunnel 列表页（/tunnels）：**
+```
+┌─────────────────────────────────────────────┐
+│ Tunnels                          [+ New]     │
+├─────────────────────────────────────────────┤
+│ ┌──────────────────────────────────────┐     │
+│ │ prod-postgres (Local)         [▶][■] │     │
+│ │ prod-bastion → inner-jump → target   │     │
+│ │ 15432→5432, 13306→3306               │     │
+│ │ ● Running  ↑2h 15m                   │     │
+│ └──────────────────────────────────────┘     │
+│ ┌──────────────────────────────────────┐     │
+│ │ dev-socks (Dynamic)           [▶][■] │     │
+│ │ prod-bastion → inner-jump            │     │
+│ │ 1080 (SOCKS5)                        │     │
+│ │ ○ Stopped                             │     │
+│ └──────────────────────────────────────┘     │
+└─────────────────────────────────────────────┘
+```
+
+**Tunnel 详情页（/tunnels/:id）：**
+```
+┌─────────────────────────────────────────────┐
+│ ← Back   prod-postgres (Local)   [▶][■][⟳]  │
+├─────────────────────────────────────────────┤
+│ [Overview] [Mappings] [Config] [Logs]       │
+├─────────────────────────────────────────────┤
+│  Overview: 链路图 + 延迟 + 错误信息           │
+│  Mappings: 映射列表 + 状态 + 一键复制地址      │
+│  Config: 编辑链路选择/映射/策略                │
+│  Logs: 实时滚动日志（可过滤 level）            │
+└─────────────────────────────────────────────┘
 ```
 
 **产物：**
 - `ui/src/api/client.ts`：封装 REST 调用（fetch wrapper + error handling）
 - `ui/src/api/ws.ts`：WebSocket 连接管理（自动重连、事件分发）
 - `ui/src/types/`：TypeScript 类型定义（与 Go model 对齐）
-- 页面：
-  - **Tunnel List**（左侧）：状态指示灯、名称、运行时长
-  - **Overview Tab**：链路可视化（hop 连线图）、延迟、错误信息
-  - **Forwards Tab**：转发规则列表、状态、一键复制地址（如 `socks5://host:1080`）
-  - **Config Tab**：表单编辑 hops/target/auth/forwards/policy
-  - **Logs Tab**：实时滚动日志，支持按 level 过滤
-- 创建隧道：表单（非向导，一页完成），支持动态添加 hop 和 forward
+- 路由（React Router）：
+  - `/ssh` → SSH 连接列表（表格 + Test Connection 按钮）
+  - `/ssh/new`、`/ssh/:id` → SSH 连接表单
+  - `/tunnels` → Tunnel 卡片列表（状态灯 + 快捷启停）
+  - `/tunnels/new` → 创建 Tunnel（选择 SSH 连接组成链路 + 配置映射）
+  - `/tunnels/:id` → Tunnel 详情页（Tabs: Overview / Mappings / Config / Logs）
+- 创建 Tunnel 时：从下拉列表选择已有 SSH 连接拖拽排序组成链路
 - 安全提示：SOCKS5 监听 0.0.0.0 无鉴权时显示警告
 - Docker 提示：listen 127.0.0.1 时提示"外部不可访问"
+- 一键复制映射地址（如 `localhost:15432`、`socks5://localhost:1080`）
 
 **前端技术细节：**
+- 路由：React Router v7
 - 状态管理：React Context + useReducer（无需 Redux，复杂度不到那个级别）
 - 数据获取：TanStack Query（缓存、自动刷新、乐观更新）
 - 表单：React Hook Form + Zod 校验
 - 主题：shadcn/ui 内置 dark/light mode
 
 **验收：**
-- 能通过 UI 创建隧道、配置多跳+多转发、启动、查看状态
-- Logs tab 实时滚动显示日志
+- SSH 连接：能创建、编辑、删除、Test Connection
+- Tunnel：能创建（选择 SSH 连接链路 + 模式 + 映射）、启动、查看详情
+- Tunnel 详情页：Overview 显示链路状态，Mappings 显示映射和一键复制，Logs 实时滚动
 - 响应式：在 Wails WebView 和浏览器中都正常显示
 
 ---
 
 ### Phase 10：Wails Desktop 集成
 
-**目标：** 打包为桌面应用，托盘菜单，开箱即用。
+**目标：** 打包为桌面应用，系统托盘/菜单栏，开箱即用。
 
 **产物：**
 - `cmd/tunnel-desktop/main.go`：
   - 初始化 Engine + API Server（随机可用端口）
   - 启动 Wails 窗口，WebView 指向 `http://localhost:<port>`
   - 窗口关闭时最小化到托盘（不退出）
-  - 托盘菜单：Show UI / Hide / Quit
-  - Quit 时：Engine.Shutdown() → 优雅关闭所有隧道 → 退出
+  - 支持 autoStart policy：应用启动时自动启动标记了 autoStart 的隧道
 - `wails.json` 配置
 - 前端构建产物通过 `//go:embed` 嵌入 Go 二进制
-- 支持 autoStart policy：应用启动时自动启动标记了 autoStart 的隧道
+
+**托盘/菜单栏图标状态：**
+
+| 全局状态 | 图标颜色 | 条件 |
+|---------|---------|------|
+| 全部停止 | 灰色 | 无 running 隧道 |
+| 部分运行 | 蓝色 | 有 running 也有 stopped |
+| 全部运行 | 绿色 | 所有隧道都 running |
+| 有错误 | 红色 | 至少一个隧道 error/degraded |
+
+**托盘菜单结构：**
+```
+┌──────────────────────────────────┐
+│  OpsTunnel         2/3 Running   │  标题 + 运行统计
+├──────────────────────────────────┤
+│  ▶ 全部启动                       │  启动所有隧道
+│  ■ 全部停止                       │  停止所有隧道
+├──────────────────────────────────┤
+│  ● prod-postgres (Local)    ▶    │  绿点=running，展开子菜单
+│  ● dev-socks (Dynamic)      ▶    │
+│  ○ staging-redis (Local)    ▶    │  空心=stopped
+│  ✕ prod-mongo (Local)       ▶    │  红叉=error
+├──────────────────────────────────┤
+│  打开主窗口                       │
+│  设置                            │
+├──────────────────────────────────┤
+│  退出                            │
+└──────────────────────────────────┘
+```
+
+**Tunnel 子菜单（hover 展开）：**
+
+Running 状态：
+```
+┌─────────────────────────────┐
+│  ■ 停止                      │
+│  ⟳ 重启                      │
+├─────────────────────────────┤
+│  📋 localhost:15432           │  ← 点击复制到剪贴板
+│  📋 localhost:13306           │  ← 点击复制到剪贴板
+├─────────────────────────────┤
+│  ↑ 2h 15m | 延迟 30ms        │  运行时长 + 延迟
+└─────────────────────────────┘
+```
+
+Stopped 状态：
+```
+┌─────────────────────────────┐
+│  ▶ 启动                      │
+└─────────────────────────────┘
+```
+
+**交互规则：**
+- Windows：右键托盘图标弹出菜单，双击打开主窗口
+- macOS：点击菜单栏图标弹出菜单（无左右键区分）
+- "退出"点击后：如有 running 隧道，弹出系统确认对话框 "N 个隧道正在运行，确定退出？"
+- Quit 流程：Engine.Shutdown() → 优雅关闭所有隧道 → 退出进程
 
 **验收：**
-- `wails dev` 启动 → 看到 UI 窗口
+- `wails dev` 启动 → 看到 UI 窗口 + 托盘图标
 - 关闭窗口 → 托盘可见，隧道继续运行
-- 托盘 Quit → 所有隧道优雅关闭
+- 托盘菜单展示所有隧道 + 状态 + 子菜单
+- 子菜单点击复制地址 → 剪贴板有值
+- 有 running 隧道时点退出 → 弹出确认框
+- 托盘图标颜色跟随全局状态变化
 - `wails build` → 生成单二进制，双击即用
 
 ---
@@ -535,25 +695,25 @@ FROM alpine:3.19
 ## 5. 依赖关系与执行顺序
 
 ```
-Phase 0 (骨架)
+Phase 0 (骨架) ✅ 已完成
     ↓
-Phase 1 (Config)
+Phase 1 (Config: SSH连接 + Tunnel 模型 + CRUD API)
     ↓
 Phase 2 (EventBus + Engine stub + WS)
     ↓
-Phase 3 (SSH Chain) ──────────────────┐
-    ↓                                  │
-Phase 4 (Local Forward)               │
-    ↓                                  │
-Phase 5 (Remote Forward)              │
-    ↓                                  │
-Phase 6 (Dynamic SOCKS5)              │
-    ↓                                  │
-Phase 7 (Supervisor) ←────────────────┘ (需要 chain + forward 都就绪)
+Phase 3 (SSH Chain + Test Connection) ─────┐
+    ↓                                       │
+Phase 4 (Local Forward)                    │
+    ↓                                       │
+Phase 5 (Remote Forward)                   │
+    ↓                                       │
+Phase 6 (Dynamic SOCKS5)                   │
+    ↓                                       │
+Phase 7 (Supervisor) ←─────────────────────┘
     ↓
 Phase 8 (API 加固)
     ↓
-Phase 9 (Frontend) ←── 可从 Phase 2 之后开始并行开发基础 UI
+Phase 9 (Frontend: SSH管理 + Tunnel管理 + 详情页)
     ↓
 Phase 10 (Wails Desktop)
     ↓
@@ -574,13 +734,17 @@ Phase 12 (打磨)
 | # | 决策 | 理由 |
 |---|------|------|
 | D1 | 前端统一走 HTTP+WS，不用 Wails binding | 一套前端代码，Desktop/Docker 通用 |
-| D2 | Target = Hop（type alias） | 结构相同，减少冗余；如后续需要区分，改为独立 struct + 嵌入公共字段 |
-| D3 | SOCKS5 自实现（仅 CONNECT） | 避免重依赖，需求明确，代码量约 200 行 |
-| D4 | ACL: deny → allow → 默认拒绝 | 安全优先，避免 Docker 场景误开放代理 |
-| D5 | 配置存 JSON 单文件 | 简单，原子写入保证一致性；后续可扩展为 SQLite |
-| D6 | slog 做日志 | 零依赖，结构化，Go 1.21+ 标准库 |
-| D7 | 先做 tunnel-server 开发全部功能，最后接 Wails | 降低开发环节复杂度，前期只需 Go + Node 环境 |
-| D8 | ID 用 xid 而非 UUID | 更短（20 字符）、有时间排序、URL 安全 |
+| D2 | SSH 连接独立管理，Tunnel 引用组合 | SSH 连接可复用，避免重复配置；增删改更灵活 |
+| D3 | Tunnel 单一模式（L/R/D），多映射同类型 | 简化 UI 和引擎逻辑；需要混合模式时建多个 Tunnel |
+| D4 | 每个 Tunnel 独立 SSH 会话（不共享） | 简单可靠，隧道间互不影响；后续可优化为连接池 |
+| D5 | SOCKS5 自实现（CONNECT + BIND） | 避免重依赖，需求明确 |
+| D6 | ACL: deny → allow → 默认拒绝 | 安全优先，避免 Docker 场景误开放代理 |
+| D7 | 配置存 JSON 单文件 | 简单，原子写入保证一致性；后续可扩展为 SQLite |
+| D8 | slog 做日志 | 零依赖，结构化，Go 1.21+ 标准库 |
+| D9 | 先做 tunnel-server 开发全部功能，最后接 Wails | 降低开发环节复杂度，前期只需 Go + Node 环境 |
+| D10 | ID 用 xid 而非 UUID | 更短（20 字符）、有时间排序、URL 安全 |
+| D11 | UI 左右分栏 + Tunnel 独立详情页 | 导航清晰，详情页有足够空间展示链路/日志 |
+| D12 | SSH 连接支持独立 Test Connection | 创建 Tunnel 前先验证连通性，减少排障成本 |
 
 ---
 

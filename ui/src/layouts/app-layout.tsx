@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router'
 import { Sidebar } from '@/components/sidebar'
+import { CloseDialog } from '@/components/close-dialog'
 import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/error-boundary'
 
@@ -10,12 +11,13 @@ export function AppLayout() {
     return (
       <div className="flex h-screen">
         <Sidebar />
-        <main className="flex-1 overflow-auto bg-gradient-to-br from-background via-muted/20 to-muted/40 p-8">
+        <main className="flex-1 overflow-y-auto overscroll-none bg-gradient-to-br from-background via-muted/20 to-muted/40 p-8">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
         </main>
         <Toaster />
+        <CloseDialog />
       </div>
     )
   }

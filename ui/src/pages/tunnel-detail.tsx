@@ -33,16 +33,16 @@ export default function TunnelDetailPage() {
   }
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <DetailHeader tunnel={tunnel} status={status} />
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
           <TabsTrigger value="overview">{t('tunnel.tabOverview')}</TabsTrigger>
           <TabsTrigger value="mappings">{t('tunnel.tabMappings')}</TabsTrigger>
           <TabsTrigger value="config">{t('tunnel.tabConfig')}</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 min-h-0 flex-1">
           <DetailOverview tunnel={tunnel} status={status} />
         </TabsContent>
         <TabsContent value="mappings" className="mt-4">

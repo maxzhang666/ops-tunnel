@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -46,7 +47,9 @@ func (s *Server) registerRoutes() {
 		r.Get("/tunnels/{id}/status", s.getTunnelStatus)
 	})
 
-	if s.cfg.UIDir != "" {
+	if s.cfg.UIEmbed != nil {
+		s.serveEmbedSPA(s.cfg.UIEmbed)
+	} else if s.cfg.UIDir != "" {
 		s.serveSPA(s.cfg.UIDir)
 	}
 }
@@ -56,6 +59,23 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{
 		"status": "ok",
 		"ts":     time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (s *Server) serveEmbedSPA(fsys fs.FS) {
+	fileServer := http.FileServer(http.FS(fsys))
+
+	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path != "" {
+			if f, err := fsys.Open(path); err == nil {
+				f.Close()
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+		}
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
 	})
 }
 

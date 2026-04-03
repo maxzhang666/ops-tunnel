@@ -131,11 +131,17 @@ type Tunnel struct {
 	Policy   Policy     `json:"policy"`
 }
 
+// DesktopConfig holds desktop application settings.
+type DesktopConfig struct {
+	CloseAction string `json:"closeAction"` // "minimize" | "quit" | "ask"
+}
+
 // Config is the top-level configuration persisted to disk.
 type Config struct {
-	Version        int              `json:"version"`
-	SSHConnections []SSHConnection  `json:"sshConnections"`
-	Tunnels        []Tunnel         `json:"tunnels"`
+	Version        int             `json:"version"`
+	Desktop        DesktopConfig   `json:"desktop"`
+	SSHConnections []SSHConnection `json:"sshConnections"`
+	Tunnels        []Tunnel        `json:"tunnels"`
 }
 
 // NewConfig returns an empty config with version set.

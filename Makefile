@@ -20,10 +20,12 @@ install-ui:
 build-ui:
 	cd ui && pnpm build
 
-build-server:
+build-server: build-ui
+	rm -rf cmd/tunnel-server/dist
+	cp -r ui/dist cmd/tunnel-server/dist
 	go build -ldflags="-X main.version=$(VERSION)" -o bin/tunnel-server ./cmd/tunnel-server
 
-build: build-ui build-server
+build: build-server
 
 # Desktop
 build-desktop: build-ui
@@ -36,4 +38,4 @@ dev-desktop: build-desktop
 
 # Clean
 clean:
-	rm -rf bin/ ui/dist/ cmd/tunnel-desktop/dist
+	rm -rf bin/ ui/dist/ cmd/tunnel-desktop/dist cmd/tunnel-server/dist

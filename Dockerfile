@@ -13,7 +13,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=build-ui /src/ui/dist ./ui/dist
+COPY --from=build-ui /src/ui/dist ./cmd/tunnel-server/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /tunnel-server ./cmd/tunnel-server
 RUN mkdir -p /data && chown 65532:65532 /data
 

@@ -44,7 +44,7 @@ export function DetailOverview({ tunnel, status }: DetailOverviewProps) {
   const activeMappings = status?.mappings?.filter((m) => m.state === 'listening').length ?? 0
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-4">
       <div className="rounded-lg border bg-card p-4">
         <h4 className="mb-3 text-sm font-medium">{t('overview.sshChain')}</h4>
         <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +92,9 @@ export function DetailOverview({ tunnel, status }: DetailOverviewProps) {
         </div>
       </div>
 
-      <LogViewer tunnelId={tunnel.id} />
+      <div className="min-h-0 flex-1">
+        <LogViewer tunnelId={tunnel.id} />
+      </div>
     </div>
   )
 }

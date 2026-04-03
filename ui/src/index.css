@@ -4,6 +4,10 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
+html, body {
+  overscroll-behavior: none;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

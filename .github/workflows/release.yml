@@ -163,11 +163,17 @@ jobs:
         if: matrix.goos == 'darwin'
         run: echo "CGO_LDFLAGS=-framework UniformTypeIdentifiers" >> "$GITHUB_ENV"
 
+      # ── Windows: hide console window ──
+      - name: Set Windows ldflags
+        if: matrix.goos == 'windows'
+        run: echo "WIN_LDFLAGS=-H=windowsgui" >> "$GITHUB_ENV"
+        shell: bash
+
       # ── Build binary ──
       - name: Build desktop binary
         run: |
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -tags desktop,production -ldflags="-s -w -X main.version=${VERSION}" \
+            go build -tags desktop,production -ldflags="-s -w ${WIN_LDFLAGS} -X main.version=${VERSION}" \
             -o tunnel-desktop${{ matrix.ext }} ./cmd/tunnel-desktop
         shell: bash
 

@@ -28,10 +28,15 @@ build-server: build-ui
 build: build-server
 
 # Desktop
+DESKTOP_LDFLAGS := -s -w -X main.version=$(VERSION)
+ifeq ($(OS),Windows_NT)
+  DESKTOP_LDFLAGS += -H=windowsgui
+endif
+
 build-desktop: build-ui
 	rm -rf cmd/tunnel-desktop/dist
 	cp -r ui/dist cmd/tunnel-desktop/dist
-	CGO_LDFLAGS="-framework UniformTypeIdentifiers" go build -tags desktop,production -ldflags="-s -w -X main.version=$(VERSION)" -o bin/tunnel-desktop ./cmd/tunnel-desktop
+	go build -tags desktop,production -ldflags="$(DESKTOP_LDFLAGS)" -o bin/tunnel-desktop ./cmd/tunnel-desktop
 
 dev-desktop: build-desktop
 	./bin/tunnel-desktop

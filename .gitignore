@@ -14,3 +14,4 @@ tunnel-*
 PLAN.md
 init.md
 cmd/tunnel-desktop/dist
+.idea

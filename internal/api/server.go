@@ -23,6 +23,7 @@ type ServerConfig struct {
 	Token       string
 	Version     string
 	Mode        string
+	WsPort      int // actual API port for WebSocket (desktop mode)
 	LogLevelVar *slog.LevelVar
 }
 

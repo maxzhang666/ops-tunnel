@@ -70,6 +70,7 @@ func main() {
 		UIEmbed:     uiFS,
 		Version:     version,
 		Mode:        "desktop",
+		WsPort:      port,
 		LogLevelVar: logLevel,
 	}, store, cfg, eng, bus, hostKeys)
 
@@ -88,6 +89,7 @@ func main() {
 		}
 	}
 
+	InitI18n(cfg)
 	app := NewApp(cfg, store, eng, bus)
 
 	slog.Info("desktop starting", "api", fmt.Sprintf("http://localhost:%d", port))
@@ -98,6 +100,7 @@ func main() {
 		Height:           832,
 		DisableResize:    true,
 		StartHidden:      false,
+		Bind: []interface{}{app},
 		AssetServer: &assetserver.Options{
 			Assets:  frontendAssets,
 			Handler: srv.Handler(),
@@ -108,10 +111,18 @@ func main() {
 			if app.trayEnd != nil {
 				app.trayEnd()
 			}
-			shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			eng.Shutdown(shutCtx)
-			srv.Shutdown(shutCtx)
+			// Cleanup runs in background so the window closes instantly
+			go func() {
+				shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				done := make(chan struct{})
+				go func() {
+					eng.Shutdown(shutCtx)
+					close(done)
+				}()
+				srv.Shutdown(shutCtx)
+				<-done
+			}()
 		},
 	}); err != nil {
 		slog.Error("wails error", "err", err)

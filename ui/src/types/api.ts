@@ -158,5 +158,6 @@ export interface LatestRelease {
 export interface VersionInfo {
   version: string
   mode: 'server' | 'desktop'
+  wsPort?: number
   latest: LatestRelease | null
 }

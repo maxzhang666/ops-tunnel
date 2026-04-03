@@ -205,6 +205,7 @@ jobs:
           platforms: ${{ github.event_name == 'push' && 'linux/amd64' || inputs.docker_platform || 'linux/amd64' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ needs.create-release.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

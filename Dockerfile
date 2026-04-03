@@ -9,12 +9,13 @@ RUN pnpm build
 
 # Stage 2: Build Go binary
 FROM golang:1.26-alpine AS build-server
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=build-ui /src/ui/dist ./cmd/tunnel-server/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /tunnel-server ./cmd/tunnel-server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.version=${VERSION}" -o /tunnel-server ./cmd/tunnel-server
 RUN mkdir -p /data && chown 65532:65532 /data
 
 # Stage 3: Runtime

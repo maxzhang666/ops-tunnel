@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { VersionInfo } from '@/types/api'
 import { openExternal } from '@/lib/utils'
 import { SettingRow, SettingSection } from './setting-row'
@@ -8,16 +9,17 @@ interface Props {
 }
 
 export function AboutSection({ version, isLoading }: Props) {
+  const { t } = useTranslation()
   const isDev = version?.version === 'dev'
   const hasUpdate = version?.latest && !isDev && version.latest.version !== version.version
 
   return (
-    <SettingSection title="About">
-      <SettingRow label="Version">
+    <SettingSection title={t('about.title')}>
+      <SettingRow label={t('about.version')}>
         <span className="text-sm text-muted-foreground">{version?.version ?? '—'}</span>
       </SettingRow>
 
-      <SettingRow label="GitHub">
+      <SettingRow label={t('about.github')}>
         <button
           type="button"
           onClick={() => openExternal('https://github.com/maxzhang666/ops-tunnel')}
@@ -29,11 +31,11 @@ export function AboutSection({ version, isLoading }: Props) {
 
       <div className="px-4 py-3">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">Checking for updates...</div>
+          <div className="text-sm text-muted-foreground">{t('about.checkingUpdates')}</div>
         ) : hasUpdate ? (
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-semibold">Update Available</div>
+              <div className="text-sm font-semibold">{t('about.updateAvailable')}</div>
               <div className="text-xs text-muted-foreground">
                 v{version!.latest!.version} — {new Date(version!.latest!.publishedAt).toLocaleDateString()}
               </div>
@@ -43,16 +45,16 @@ export function AboutSection({ version, isLoading }: Props) {
               onClick={() => openExternal(version!.latest!.url)}
               className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Download
+              {t('about.download')}
             </button>
           </div>
         ) : isDev && version?.latest ? (
           <div className="text-sm text-muted-foreground">
-            Development build — latest release: v{version.latest.version}
+            {t('about.devBuild', { version: version.latest.version })}
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
-            {version?.latest ? 'Up to date' : 'Unable to check for updates'}
+            {version?.latest ? t('about.upToDate') : t('about.unableToCheck')}
           </div>
         )}
       </div>

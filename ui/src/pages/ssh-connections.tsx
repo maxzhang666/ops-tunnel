@@ -24,21 +24,20 @@ export default function SSHConnectionsPage() {
       </div>
       <SSHList />
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen} dismissible={false}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{t('ssh.newConnectionTitle')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-1">
-            <SSHForm
-              submitLabel={t('ssh.createConnection')}
-              onSubmit={async (data) => {
-                await createMutation.mutateAsync(data)
-                toast.success(t('ssh.connectionCreated'))
-                setOpen(false)
-              }}
-            />
-          </div>
+          <SSHForm
+            submitLabel={t('ssh.createConnection')}
+            onCancel={() => setOpen(false)}
+            onSubmit={async (data) => {
+              await createMutation.mutateAsync(data)
+              toast.success(t('ssh.connectionCreated'))
+              setOpen(false)
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

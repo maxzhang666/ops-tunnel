@@ -6,22 +6,25 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { useTunnels, useTunnelStatus, useDeleteTunnel, TUNNEL_KEYS } from '@/hooks/use-tunnels'
+import { useTunnels, useTunnelStatus, useDeleteTunnel, useUpdateTunnel, TUNNEL_KEYS } from '@/hooks/use-tunnels'
 import { useWsEvent } from '@/hooks/use-ws-events'
 import { TunnelCard } from './tunnel-card'
+import { TunnelForm } from './tunnel-form'
 import { toast } from 'sonner'
 import type { Tunnel } from '@/types/api'
 
-function TunnelWithStatus({ tunnel, onDelete }: { tunnel: Tunnel; onDelete: (t: Tunnel) => void }) {
+function TunnelWithStatus({ tunnel, onEdit, onDelete }: { tunnel: Tunnel; onEdit: (t: Tunnel) => void; onDelete: (t: Tunnel) => void }) {
   const { data: status } = useTunnelStatus(tunnel.id)
-  return <TunnelCard tunnel={tunnel} status={status} onDelete={onDelete} />
+  return <TunnelCard tunnel={tunnel} status={status} onEdit={onEdit} onDelete={onDelete} />
 }
 
 export function TunnelList() {
   const { t } = useTranslation()
   const { data: tunnels, isLoading } = useTunnels()
   const deleteMutation = useDeleteTunnel()
+  const updateMutation = useUpdateTunnel()
   const queryClient = useQueryClient()
+  const [editTarget, setEditTarget] = useState<Tunnel | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Tunnel | null>(null)
 
   useWsEvent(useCallback((event) => {
@@ -59,9 +62,29 @@ export function TunnelList() {
     <>
       <div className="space-y-3">
         {tunnels.map((tunnel) => (
-          <TunnelWithStatus key={tunnel.id} tunnel={tunnel} onDelete={setDeleteTarget} />
+          <TunnelWithStatus key={tunnel.id} tunnel={tunnel} onEdit={setEditTarget} onDelete={setDeleteTarget} />
         ))}
       </div>
+
+      <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)} dismissible={false}>
+        <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t('tunnel.editTunnel')}</DialogTitle>
+          </DialogHeader>
+          {editTarget && (
+            <TunnelForm
+              initialData={editTarget}
+              submitLabel={t('common.saveChanges')}
+              onCancel={() => setEditTarget(null)}
+              onSubmit={async (data) => {
+                await updateMutation.mutateAsync({ id: editTarget.id, data })
+                toast.success(t('tunnel.tunnelConfigUpdated'))
+                setEditTarget(null)
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>

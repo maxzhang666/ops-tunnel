@@ -8,7 +8,6 @@ import { useWsEvent } from '@/hooks/use-ws-events'
 import { DetailHeader } from '@/components/tunnel/detail-header'
 import { DetailOverview } from '@/components/tunnel/detail-overview'
 import { DetailMappings } from '@/components/tunnel/detail-mappings'
-import { DetailConfig } from '@/components/tunnel/detail-config'
 
 export default function TunnelDetailPage() {
   const { t } = useTranslation()
@@ -40,16 +39,12 @@ export default function TunnelDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">{t('tunnel.tabOverview')}</TabsTrigger>
           <TabsTrigger value="mappings">{t('tunnel.tabMappings')}</TabsTrigger>
-          <TabsTrigger value="config">{t('tunnel.tabConfig')}</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4 min-h-0 flex-1">
           <DetailOverview tunnel={tunnel} status={status} />
         </TabsContent>
         <TabsContent value="mappings" className="mt-4">
           <DetailMappings tunnel={tunnel} status={status} />
-        </TabsContent>
-        <TabsContent value="config" className="mt-4">
-          <DetailConfig tunnel={tunnel} />
         </TabsContent>
       </Tabs>
     </div>

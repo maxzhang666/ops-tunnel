@@ -3,10 +3,13 @@ name: Dev Docker
 on:
   push:
     branches: [master]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.github/workflows/release.yml'
+    paths:
+      - 'cmd/tunnel-server/**'
+      - 'internal/**'
+      - 'ui/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
 
 permissions:
   packages: write

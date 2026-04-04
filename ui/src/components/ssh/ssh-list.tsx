@@ -107,24 +107,23 @@ export function SSHList() {
       </div>
 
       {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)}>
+      <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)} dismissible={false}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{t('ssh.editConnectionTitle')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-1">
-            {editTarget && (
-              <SSHForm
-                initialData={editTarget}
-                submitLabel={t('common.saveChanges')}
-                onSubmit={async (data) => {
-                  await updateMutation.mutateAsync({ id: editTarget.id, data })
-                  toast.success(t('ssh.connectionUpdated'))
-                  setEditTarget(null)
-                }}
-              />
-            )}
-          </div>
+          {editTarget && (
+            <SSHForm
+              initialData={editTarget}
+              submitLabel={t('common.saveChanges')}
+              onCancel={() => setEditTarget(null)}
+              onSubmit={async (data) => {
+                await updateMutation.mutateAsync({ id: editTarget.id, data })
+                toast.success(t('ssh.connectionUpdated'))
+                setEditTarget(null)
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

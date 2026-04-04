@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, Play, Square, RotateCw } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Play, Square, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useStartTunnel, useStopTunnel, useRestartTunnel } from '@/hooks/use-tunnels'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { TunnelForm } from './tunnel-form'
+import { useStartTunnel, useStopTunnel, useRestartTunnel, useUpdateTunnel } from '@/hooks/use-tunnels'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Tunnel, TunnelStatus } from '@/types/api'
 
@@ -65,6 +69,8 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
   const startMutation = useStartTunnel()
   const stopMutation = useStopTunnel()
   const restartMutation = useRestartTunnel()
+  const updateMutation = useUpdateTunnel()
+  const [editOpen, setEditOpen] = useState(false)
 
   const state = status?.state ?? 'stopped'
   const mode = modeStyles[tunnel.mode] ?? modeStyles.local
@@ -105,11 +111,33 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
             {restartMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RotateCw className="mr-1 h-3.5 w-3.5" />}
             {t('common.restart')}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            {t('common.edit')}
+          </Button>
         </div>
       </div>
       {status?.lastError && (state === 'error' || state === 'degraded') && (
         <div className="ml-11 mt-2 text-sm text-destructive">{status.lastError}</div>
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen} dismissible={false}>
+        <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>{t('tunnel.editTunnel')}</DialogTitle>
+          </DialogHeader>
+          <TunnelForm
+            initialData={tunnel}
+            submitLabel={t('common.saveChanges')}
+            onSubmit={async (data) => {
+              await updateMutation.mutateAsync({ id: tunnel.id, data })
+              toast.success(t('tunnel.tunnelConfigUpdated'))
+              setEditOpen(false)
+            }}
+            onCancel={() => setEditOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

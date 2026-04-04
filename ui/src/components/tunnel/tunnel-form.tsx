@@ -10,10 +10,11 @@ import { ApiError } from '@/lib/api'
 import { translateValidationErrors } from '@/lib/api-errors'
 import type { Tunnel, TunnelMode, Mapping } from '@/types/api'
 
-interface TunnelFormProps {
+export interface TunnelFormProps {
   initialData?: Tunnel
   onSubmit: (data: Partial<Tunnel>) => Promise<void>
   submitLabel: string
+  onCancel?: () => void
 }
 
 function defaultMapping(mode: TunnelMode): Mapping {
@@ -23,7 +24,7 @@ function defaultMapping(mode: TunnelMode): Mapping {
   return base
 }
 
-export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormProps) {
+export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: TunnelFormProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name ?? '')
   const [mode, setMode] = useState<TunnelMode>(initialData?.mode ?? 'local')
@@ -76,7 +77,8 @@ export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormPro
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+      <div className="flex-1 space-y-6 overflow-y-auto p-1">
       {error && <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       <Card>
@@ -149,8 +151,14 @@ export function TunnelForm({ initialData, onSubmit, submitLabel }: TunnelFormPro
         </Card>
       )}
 
-      <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur">
+      </div>
+      <div className="shrink-0 border-t bg-background px-1 pt-3">
         <div className="flex justify-end gap-3">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          )}
           <Button type="submit" disabled={submitting}>{submitting ? t('common.saving') : submitLabel}</Button>
         </div>
       </div>

@@ -14,9 +14,10 @@ interface SSHFormProps {
   initialData?: SSHConnection
   onSubmit: (data: Partial<SSHConnection>) => Promise<void>
   submitLabel: string
+  onCancel?: () => void
 }
 
-export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
+export function SSHForm({ initialData, onSubmit, submitLabel, onCancel }: SSHFormProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name ?? '')
   const [host, setHost] = useState(initialData?.endpoint?.host ?? '')
@@ -82,7 +83,8 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+      <div className="flex-1 space-y-6 overflow-y-auto p-1">
       {error && (
         <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
@@ -216,8 +218,14 @@ export function SSHForm({ initialData, onSubmit, submitLabel }: SSHFormProps) {
         </Card>
       )}
 
-      <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur">
+      </div>
+      <div className="shrink-0 border-t bg-background px-1 py-3">
         <div className="flex justify-end gap-3">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          )}
           {initialData?.id && <SSHTestButton id={initialData.id} />}
           <Button type="submit" disabled={submitting}>
             {submitting ? t('common.saving') : submitLabel}

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Power, PowerOff, RotateCw, Trash2 } from 'lucide-react'
+import { Loader2, Pencil, Power, PowerOff, RotateCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSSHConnections } from '@/hooks/use-ssh-connections'
@@ -49,10 +49,11 @@ function formatUptime(since: string): string {
 interface TunnelCardProps {
   tunnel: Tunnel
   status?: TunnelStatus
+  onEdit: (tunnel: Tunnel) => void
   onDelete: (tunnel: Tunnel) => void
 }
 
-export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
+export function TunnelCard({ tunnel, status, onEdit, onDelete }: TunnelCardProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: sshConns } = useSSHConnections()
@@ -137,6 +138,13 @@ export function TunnelCard({ tunnel, status, onDelete }: TunnelCardProps) {
             ) : (
               <PowerOff className="h-3.5 w-3.5" />
             )}
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8"
+            onClick={(e) => { e.stopPropagation(); onEdit(tunnel) }}
+            title={t('common.edit')}
+          >
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost" size="icon"

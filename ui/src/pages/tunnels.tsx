@@ -24,21 +24,20 @@ export default function TunnelsPage() {
       </div>
       <TunnelList />
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen} dismissible={false}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{t('tunnel.newTunnel')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-1">
-            <TunnelForm
-              submitLabel={t('tunnel.createTunnel')}
-              onSubmit={async (data) => {
-                await createMutation.mutateAsync(data)
-                toast.success(t('tunnel.tunnelCreated'))
-                setOpen(false)
-              }}
-            />
-          </div>
+          <TunnelForm
+            submitLabel={t('tunnel.createTunnel')}
+            onCancel={() => setOpen(false)}
+            onSubmit={async (data) => {
+              await createMutation.mutateAsync(data)
+              toast.success(t('tunnel.tunnelCreated'))
+              setOpen(false)
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

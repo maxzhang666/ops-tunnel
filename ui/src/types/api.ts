@@ -149,10 +149,16 @@ export interface Settings {
   desktop: DesktopConfig
 }
 
+export interface ReleaseAsset {
+  name: string
+  url: string
+}
+
 export interface LatestRelease {
   version: string
   url: string
   publishedAt: string
+  assets?: ReleaseAsset[]
 }
 
 export interface VersionInfo {

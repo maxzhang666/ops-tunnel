@@ -14,10 +14,16 @@ type versionResponse struct {
 	Latest  *latestRelease `json:"latest"`
 }
 
+type releaseAsset struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
 type latestRelease struct {
-	Version     string `json:"version"`
-	URL         string `json:"url"`
-	PublishedAt string `json:"publishedAt"`
+	Version     string         `json:"version"`
+	URL         string         `json:"url"`
+	PublishedAt string         `json:"publishedAt"`
+	Assets      []releaseAsset `json:"assets,omitempty"`
 }
 
 var (
@@ -65,6 +71,10 @@ func fetchLatestRelease() *latestRelease {
 		TagName     string `json:"tag_name"`
 		HTMLURL     string `json:"html_url"`
 		PublishedAt string `json:"published_at"`
+		Assets      []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&ghRelease); err != nil {
 		return releaseCacheData
@@ -75,10 +85,16 @@ func fetchLatestRelease() *latestRelease {
 		ver = ver[1:]
 	}
 
+	assets := make([]releaseAsset, 0, len(ghRelease.Assets))
+	for _, a := range ghRelease.Assets {
+		assets = append(assets, releaseAsset{Name: a.Name, URL: a.BrowserDownloadURL})
+	}
+
 	releaseCacheData = &latestRelease{
 		Version:     ver,
 		URL:         ghRelease.HTMLURL,
 		PublishedAt: ghRelease.PublishedAt,
+		Assets:      assets,
 	}
 	releaseCacheTime = time.Now()
 	return releaseCacheData

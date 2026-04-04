@@ -64,6 +64,8 @@
     "checkingUpdates": "Checking for updates...",
     "updateAvailable": "Update Available",
     "download": "Download",
+    "downloadAsset": "Download {{name}}",
+    "dockerUpdateHint": "Run the following command to update:",
     "devBuild": "Development build — latest release: v{{version}}",
     "upToDate": "Up to date",
     "unableToCheck": "Unable to check for updates"

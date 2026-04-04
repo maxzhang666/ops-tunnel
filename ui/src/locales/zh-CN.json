@@ -64,6 +64,8 @@
     "checkingUpdates": "正在检查更新...",
     "updateAvailable": "有可用更新",
     "download": "下载",
+    "downloadAsset": "下载 {{name}}",
+    "dockerUpdateHint": "执行以下命令更新：",
     "devBuild": "开发版本 — 最新发布: v{{version}}",
     "upToDate": "已是最新版本",
     "unableToCheck": "无法检查更新"

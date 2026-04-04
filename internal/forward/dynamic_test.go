@@ -240,3 +240,125 @@ func TestDynamicForwarder_SOCKS5_UDPAssociateRejected(t *testing.T) {
 	conn.Close()
 	time.Sleep(50 * time.Millisecond)
 }
+
+// --- HTTP CONNECT Protocol Integration Tests ---
+
+func TestDynamicForwarder_HTTP_CONNECT_NoSSH(t *testing.T) {
+	fwd := NewDynamicForwarder(testDynamicMapping())
+	if err := fwd.Start(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	defer fwd.Stop(context.Background())
+
+	addr := fwd.Status().Listen
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	conn.Write([]byte("CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\n"))
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 256)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+	if !stringContains(resp, "502") {
+		t.Errorf("expected HTTP 502 response, got: %s", resp)
+	}
+}
+
+func TestDynamicForwarder_HTTP_MethodNotAllowed(t *testing.T) {
+	fwd := NewDynamicForwarder(testDynamicMapping())
+	if err := fwd.Start(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	defer fwd.Stop(context.Background())
+
+	addr := fwd.Status().Listen
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	conn.Write([]byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"))
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 256)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+	if !stringContains(resp, "405") {
+		t.Errorf("expected HTTP 405 response, got: %s", resp)
+	}
+}
+
+func TestDynamicForwarder_HTTP_ACLReject(t *testing.T) {
+	fwd := NewDynamicForwarder(config.Mapping{
+		ID:     "dm-http-acl",
+		Listen: config.Endpoint{Host: "127.0.0.1", Port: 0},
+		Socks5: &config.Socks5Cfg{
+			Auth:       config.Socks5None,
+			AllowCIDRs: []string{"10.0.0.0/8"},
+		},
+	})
+	if err := fwd.Start(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	defer fwd.Stop(context.Background())
+
+	addr := fwd.Status().Listen
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	conn.Write([]byte("CONNECT 8.8.8.8:443 HTTP/1.1\r\n\r\n"))
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 256)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+	if !stringContains(resp, "403") {
+		t.Errorf("expected HTTP 403 response, got: %s", resp)
+	}
+}
+
+func TestDynamicForwarder_ProtocolAutoDetect(t *testing.T) {
+	fwd := NewDynamicForwarder(testDynamicMapping())
+	if err := fwd.Start(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	defer fwd.Stop(context.Background())
+
+	addr := fwd.Status().Listen
+
+	// SOCKS5 connection
+	conn1, _ := net.DialTimeout("tcp", addr, time.Second)
+	conn1.Write([]byte{0x05, 0x01, 0x00})
+	resp1 := make([]byte, 2)
+	io.ReadFull(conn1, resp1)
+	if resp1[0] != 0x05 || resp1[1] != 0x00 {
+		t.Errorf("SOCKS5 handshake failed: %x", resp1)
+	}
+	conn1.Close()
+
+	// HTTP CONNECT on the same port
+	conn2, _ := net.DialTimeout("tcp", addr, time.Second)
+	conn2.Write([]byte("CONNECT example.com:443 HTTP/1.1\r\n\r\n"))
+	conn2.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 256)
+	n, _ := conn2.Read(buf)
+	resp2 := string(buf[:n])
+	if !stringContains(resp2, "HTTP/1.1") {
+		t.Errorf("HTTP CONNECT not detected, got: %s", resp2)
+	}
+	conn2.Close()
+}
+
+func stringContains(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

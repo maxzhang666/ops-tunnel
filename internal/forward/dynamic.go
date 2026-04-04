@@ -1,9 +1,12 @@
 package forward
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,7 +15,8 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
-// DynamicForwarder implements dynamic (-D) SOCKS5 port forwarding.
+// DynamicForwarder implements dynamic (-D) proxy forwarding with auto-detection
+// of SOCKS5 and HTTP CONNECT protocols on the same port.
 type DynamicForwarder struct {
 	mapping    config.Mapping
 	acl        *ACL
@@ -95,7 +99,7 @@ func (f *DynamicForwarder) Start(ctx context.Context, sshClient *gossh.Client) e
 	f.lastErr = ""
 	f.done = make(chan struct{})
 
-	f.log("info", fmt.Sprintf("SOCKS5 listening on %s", f.listenAddr))
+	f.log("info", fmt.Sprintf("SOCKS5/HTTP proxy listening on %s", f.listenAddr))
 	go f.acceptLoop()
 	return nil
 }
@@ -120,6 +124,32 @@ func (f *DynamicForwarder) handleConn(conn net.Conn) {
 		f.active.Done()
 	}()
 
+	br := bufio.NewReader(conn)
+	first, err := br.Peek(1)
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	// Wrap conn so subsequent reads go through the buffered reader.
+	bc := &bufferedConn{Conn: conn, r: br}
+
+	if first[0] == socks5Version {
+		f.handleSOCKS5(bc)
+	} else {
+		f.handleHTTP(bc)
+	}
+}
+
+// bufferedConn wraps a net.Conn with a bufio.Reader for peeked bytes.
+type bufferedConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (c *bufferedConn) Read(b []byte) (int, error) { return c.r.Read(b) }
+
+func (f *DynamicForwarder) handleSOCKS5(conn net.Conn) {
 	if err := f.negotiate(conn); err != nil {
 		f.log("warn", fmt.Sprintf("SOCKS5 handshake failed from %s: %s", conn.RemoteAddr(), err))
 		conn.Close()
@@ -142,6 +172,78 @@ func (f *DynamicForwarder) handleConn(conn net.Conn) {
 		writeReply(conn, RepCmdNotSupported, nil)
 		conn.Close()
 	}
+}
+
+func (f *DynamicForwarder) handleHTTP(conn net.Conn) {
+	br := bufio.NewReader(conn)
+	reqLine, err := br.ReadString('\n')
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	// Parse "CONNECT host:port HTTP/1.x" or other methods
+	parts := strings.Fields(strings.TrimSpace(reqLine))
+	if len(parts) < 3 || !strings.HasPrefix(parts[2], "HTTP/") {
+		io.WriteString(conn, "HTTP/1.1 400 Bad Request\r\n\r\n")
+		conn.Close()
+		return
+	}
+
+	// Consume remaining headers
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil || strings.TrimSpace(line) == "" {
+			break
+		}
+	}
+
+	method := strings.ToUpper(parts[0])
+	if method != "CONNECT" {
+		io.WriteString(conn, "HTTP/1.1 405 Method Not Allowed\r\n\r\n")
+		conn.Close()
+		return
+	}
+
+	target := parts[1]
+	// Ensure host:port format
+	if _, _, err := net.SplitHostPort(target); err != nil {
+		target = net.JoinHostPort(target, "443")
+	}
+
+	host, _, _ := net.SplitHostPort(target)
+	if ip := net.ParseIP(host); ip != nil && !f.acl.Check(ip) {
+		io.WriteString(conn, "HTTP/1.1 403 Forbidden\r\n\r\n")
+		conn.Close()
+		f.mu.Lock()
+		f.lastErr = fmt.Sprintf("ACL denied %s", host)
+		f.mu.Unlock()
+		return
+	}
+
+	if f.sshClient == nil {
+		io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\n\r\n")
+		conn.Close()
+		f.log("error", "HTTP CONNECT failed: no SSH client")
+		return
+	}
+
+	f.log("info", fmt.Sprintf("HTTP CONNECT %s", target))
+
+	remote, err := f.sshClient.Dial("tcp", target)
+	if err != nil {
+		io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\n\r\n")
+		conn.Close()
+		errMsg := fmt.Sprintf("dial %s: %s", target, err)
+		f.mu.Lock()
+		f.lastErr = errMsg
+		f.mu.Unlock()
+		f.log("error", fmt.Sprintf("HTTP CONNECT %s failed: %s", target, err))
+		return
+	}
+
+	io.WriteString(conn, "HTTP/1.1 200 Connection Established\r\n\r\n")
+	biCopy(conn, remote)
 }
 
 func (f *DynamicForwarder) negotiate(conn net.Conn) error {

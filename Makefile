@@ -31,6 +31,8 @@ build: build-server
 DESKTOP_LDFLAGS := -s -w -X main.version=$(VERSION)
 ifeq ($(OS),Windows_NT)
   DESKTOP_LDFLAGS += -H=windowsgui
+else ifeq ($(shell uname -s),Darwin)
+  export CGO_LDFLAGS := -framework UniformTypeIdentifiers
 endif
 
 build-desktop: build-ui

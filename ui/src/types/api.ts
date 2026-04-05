@@ -99,6 +99,7 @@ export interface MappingStatus {
   listen: string
   bytesIn: number
   bytesOut: number
+  activeConns: number
   detail?: string
 }
 

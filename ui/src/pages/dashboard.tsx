@@ -90,7 +90,7 @@ export default function DashboardPage() {
     else stopped++
     totalIn += s?.bytesIn ?? 0
     totalOut += s?.bytesOut ?? 0
-    s?.mappings?.forEach((m) => { if (m.state === 'listening') activeConns++ })
+    s?.mappings?.forEach((m) => { activeConns += m.activeConns ?? 0 })
   })
 
   // Latest realtime speed from samples
@@ -213,7 +213,7 @@ function TunnelMiniCard({ tunnel, status }: { tunnel: Tunnel; status?: TunnelSta
   const navigate = useNavigate()
   const state = status?.state ?? 'stopped'
   const mode = modeStyles[tunnel.mode] ?? modeStyles.local
-  const activeConns = status?.mappings?.filter((m) => m.state === 'listening').length ?? 0
+  const activeConns = status?.mappings?.reduce((sum, m) => sum + (m.activeConns ?? 0), 0) ?? 0
 
   return (
     <div

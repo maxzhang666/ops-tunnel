@@ -21,12 +21,13 @@ type HopStatus struct {
 }
 
 type MappingStatus struct {
-	MappingID string `json:"mappingId"`
-	State     string `json:"state"`
-	Listen    string `json:"listen"`
-	BytesIn   int64  `json:"bytesIn"`
-	BytesOut  int64  `json:"bytesOut"`
-	Detail    string `json:"detail,omitempty"`
+	MappingID   string `json:"mappingId"`
+	State       string `json:"state"`
+	Listen      string `json:"listen"`
+	BytesIn     int64  `json:"bytesIn"`
+	BytesOut    int64  `json:"bytesOut"`
+	ActiveConns int    `json:"activeConns"`
+	Detail      string `json:"detail,omitempty"`
 }
 
 type TunnelStatus struct {

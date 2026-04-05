@@ -389,12 +389,13 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 			totalIn += st.BytesIn
 			totalOut += st.BytesOut
 			mappings[i] = MappingStatus{
-				MappingID: st.MappingID,
-				State:     st.State,
-				Listen:    st.Listen,
-				BytesIn:   st.BytesIn,
-				BytesOut:  st.BytesOut,
-				Detail:    st.LastError,
+				MappingID:   st.MappingID,
+				State:       st.State,
+				Listen:      st.Listen,
+				BytesIn:     st.BytesIn,
+				BytesOut:    st.BytesOut,
+				ActiveConns: st.ActiveConns,
+				Detail:      st.LastError,
 			}
 		}
 	} else {

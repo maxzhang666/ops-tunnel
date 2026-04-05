@@ -52,6 +52,7 @@ func (s *Server) registerRoutes() {
 
 		r.Get("/traffic/realtime", s.getRealtimeTraffic)
 		r.Get("/traffic/history", s.getTrafficHistory)
+		r.Get("/stats", s.getStats)
 	})
 
 	if s.cfg.UIEmbed != nil {

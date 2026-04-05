@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	realtimeSamplesCap = 300 // 5 minutes at 1s interval
+	realtimeSamplesCap = 600 // 10 minutes at 1s interval
 	flushInterval      = 60 * time.Second
 )
 

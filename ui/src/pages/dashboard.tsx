@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useTunnels, TUNNEL_KEYS } from '@/hooks/use-tunnels'
 import { useRealtimeTraffic } from '@/hooks/use-traffic'
+import { useStats } from '@/hooks/use-stats'
 import { useWsEvent } from '@/hooks/use-ws-events'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -44,13 +45,22 @@ const modeStyles: Record<string, { bg: string; text: string }> = {
   dynamic: { bg: 'bg-amber-50', text: 'text-amber-700' },
 }
 
+const chartRanges = [
+  { key: '1m', seconds: 60 },
+  { key: '5m', seconds: 300 },
+  { key: '10m', seconds: 600 },
+] as const
+
+type ChartRange = (typeof chartRanges)[number]['key']
+
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { data: tunnels } = useTunnels()
   const { data: realtimeData } = useRealtimeTraffic()
+  const { data: stats } = useStats()
   const queryClient = useQueryClient()
+  const [chartRange, setChartRange] = useState<ChartRange>('5m')
 
-  // Fetch all tunnel statuses in parallel
   const statusQueries = useQueries({
     queries: (tunnels ?? []).map((tunnel) => ({
       queryKey: TUNNEL_KEYS.status(tunnel.id),
@@ -83,32 +93,65 @@ export default function DashboardPage() {
     s?.mappings?.forEach((m) => { if (m.state === 'listening') activeConns++ })
   })
 
-  const chartData = (realtimeData?.samples ?? []).map((s) => ({
+  // Latest realtime speed from samples
+  const allSamples = realtimeData?.samples ?? []
+  const latest = allSamples.length > 0 ? allSamples[allSamples.length - 1] : null
+  const uploadSpeed = latest?.bytesOut ?? 0
+  const downloadSpeed = latest?.bytesIn ?? 0
+
+  // Filter samples by selected time range
+  const rangeSeconds = chartRanges.find((r) => r.key === chartRange)?.seconds ?? 300
+  const cutoff = Date.now() - rangeSeconds * 1000
+  const visibleSamples = allSamples.filter((s) => new Date(s.ts).getTime() >= cutoff)
+
+  const chartData = visibleSamples.map((s) => ({
     time: new Date(s.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     in: s.bytesIn,
     out: s.bytesOut,
   }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <h2 className="text-2xl font-bold">{t('dashboard.title')}</h2>
 
-      {/* Status summary */}
-      <div className="grid grid-cols-5 gap-3">
+      {/* 3x3 stat grid */}
+      <div className="grid grid-cols-3 gap-2">
         <StatCard label={t('dashboard.running')} value={running} color="text-green-600" />
         <StatCard label={t('dashboard.stopped')} value={stopped} color="text-muted-foreground" />
         <StatCard label={t('dashboard.errors')} value={errors} color="text-red-600" />
-        <StatCard label={t('dashboard.totalTraffic')} value={formatBytes(totalIn + totalOut)} />
+        <StatCard label={t('dashboard.uploadSpeed')} value={formatRate(uploadSpeed)} color="text-emerald-600" />
+        <StatCard label={t('dashboard.downloadSpeed')} value={formatRate(downloadSpeed)} color="text-blue-600" />
         <StatCard label={t('dashboard.activeConns')} value={activeConns} />
+        <StatCard label={t('dashboard.uploadTotal')} value={formatBytes(totalOut)} />
+        <StatCard label={t('dashboard.downloadTotal')} value={formatBytes(totalIn)} />
+        <StatCard label={t('dashboard.memoryUsage')} value={formatBytes(stats?.memAlloc ?? 0)} />
       </div>
 
       {/* Bandwidth chart */}
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">{t('dashboard.bandwidth')}</h3>
-        <div className="h-48">
+      <div className="rounded-lg border bg-card px-3 pt-3 pb-1">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-medium">{t('dashboard.bandwidth')}</h3>
+          <div className="flex gap-1">
+            {chartRanges.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setChartRange(r.key)}
+                className={cn(
+                  'rounded px-2 py-0.5 text-xs transition-colors',
+                  chartRange === r.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent',
+                )}
+              >
+                {t(`dashboard.range${r.key}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-44">
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -126,8 +169,8 @@ export default function DashboardPage() {
                   labelStyle={{ fontSize: 11 }}
                   contentStyle={{ fontSize: 11 }}
                 />
-                <Area type="monotone" dataKey="in" stroke="#3b82f6" fill="url(#colorIn)" strokeWidth={1.5} />
-                <Area type="monotone" dataKey="out" stroke="#22c55e" fill="url(#colorOut)" strokeWidth={1.5} />
+                <Area type="monotone" dataKey="in" stroke="#3b82f6" fill="url(#colorIn)" strokeWidth={1.5} isAnimationActive={false} />
+                <Area type="monotone" dataKey="out" stroke="#22c55e" fill="url(#colorOut)" strokeWidth={1.5} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -140,8 +183,8 @@ export default function DashboardPage() {
 
       {/* Tunnel grid */}
       <div>
-        <h3 className="mb-3 text-sm font-medium">{t('dashboard.tunnels')}</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <h3 className="mb-2 text-sm font-medium">{t('dashboard.tunnels')}</h3>
+        <div className="grid grid-cols-2 gap-2">
           {tunnels?.map((tunnel) => (
             <TunnelMiniCard key={tunnel.id} tunnel={tunnel} status={statusMap.get(tunnel.id)} />
           ))}
@@ -158,7 +201,7 @@ export default function DashboardPage() {
 
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className="rounded-lg border bg-card px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn('text-lg font-bold', color)}>{value}</div>
     </div>

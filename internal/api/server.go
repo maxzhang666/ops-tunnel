@@ -7,12 +7,14 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
 	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
+	"github.com/maxzhang666/ops-tunnel/internal/traffic"
 )
 
 // ServerConfig holds HTTP server settings.
@@ -25,6 +27,21 @@ type ServerConfig struct {
 	Mode        string
 	WsPort      int // actual API port for WebSocket (desktop mode)
 	LogLevelVar *slog.LevelVar
+	Sampler     TrafficSamplerAPI
+	TrafficDB   TrafficQueryAPI
+}
+
+// TrafficSamplerAPI provides realtime traffic samples.
+type TrafficSamplerAPI interface {
+	GetRealtime() []TrafficSampleDTO
+}
+
+// TrafficSampleDTO is a traffic data point.
+type TrafficSampleDTO = engine.TrafficSample
+
+// TrafficQueryAPI provides historical traffic queries.
+type TrafficQueryAPI interface {
+	Query(from, to time.Time, step time.Duration) ([]traffic.Sample, error)
 }
 
 // Server is the HTTP API server.

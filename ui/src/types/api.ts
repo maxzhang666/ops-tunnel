@@ -97,6 +97,8 @@ export interface MappingStatus {
   mappingId: string
   state: string
   listen: string
+  bytesIn: number
+  bytesOut: number
   detail?: string
 }
 
@@ -106,6 +108,8 @@ export interface TunnelStatus {
   since: string
   chain: HopStatus[]
   mappings: MappingStatus[]
+  bytesIn: number
+  bytesOut: number
   lastError?: string
 }
 

@@ -1,4 +1,17 @@
 {
+  "dashboard": {
+    "title": "Dashboard",
+    "running": "Running",
+    "stopped": "Stopped",
+    "errors": "Errors",
+    "totalTraffic": "Total Traffic",
+    "activeConns": "Active Conns",
+    "bandwidth": "Bandwidth (Realtime)",
+    "noTrafficData": "No traffic data yet",
+    "tunnels": "Tunnels",
+    "noTunnels": "No tunnels configured",
+    "conns": "{{count}} conn(s)"
+  },
   "common": {
     "save": "Save",
     "saveChanges": "Save Changes",
@@ -27,6 +40,7 @@
   "sidebar": {
     "title": "OpsTunnel",
     "subtitle": "SSH Tunnel Manager",
+    "dashboard": "Dashboard",
     "sshConnections": "SSH Connections",
     "tunnels": "Tunnels",
     "settings": "Settings"

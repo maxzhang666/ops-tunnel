@@ -28,6 +28,8 @@ type RemoteForwarder struct {
 	active    sync.WaitGroup
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
+	bytesIn   atomic.Int64
+	bytesOut  atomic.Int64
 }
 
 func (f *RemoteForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
@@ -54,6 +56,8 @@ func (f *RemoteForwarder) Status() Status {
 		Listen:      listen,
 		ActiveConns: int(f.activeCnt.Load()),
 		TotalConns:  f.totalCnt.Load(),
+		BytesIn:     f.bytesIn.Load(),
+		BytesOut:    f.bytesOut.Load(),
 		LastError:   f.lastErr,
 	}
 }
@@ -121,7 +125,7 @@ func (f *RemoteForwarder) handleConn(remote net.Conn) {
 		return
 	}
 
-	biCopy(remote, local)
+	biCopyCount(remote, local, &f.bytesIn, &f.bytesOut)
 }
 
 // Stop closes the remote listener and waits for active connections to drain.

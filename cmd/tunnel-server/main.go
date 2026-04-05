@@ -14,6 +14,7 @@ import (
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
 	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
+	"github.com/maxzhang666/ops-tunnel/internal/traffic"
 )
 
 var version = "dev"
@@ -77,6 +78,19 @@ func main() {
 	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(dataDir, "known_hosts.json"))
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
+	trafficStore, err := traffic.NewStore(filepath.Join(dataDir, "traffic.db"))
+	if err != nil {
+		slog.Error("failed to open traffic db", "err", err)
+		os.Exit(1)
+	}
+	defer trafficStore.Close()
+	trafficStore.Prune(30 * 24 * time.Hour)
+
+	sampler := engine.NewTrafficSampler(eng, trafficStore)
+	samplerCtx, samplerCancel := context.WithCancel(context.Background())
+	defer samplerCancel()
+	go sampler.Run(samplerCtx)
+
 	serverCfg := api.ServerConfig{
 		ListenAddr:  listen,
 		UIDir:       uiDir,
@@ -84,6 +98,8 @@ func main() {
 		Version:     version,
 		Mode:        "server",
 		LogLevelVar: logLevel,
+		Sampler:     sampler,
+		TrafficDB:   trafficStore,
 	}
 	if uiDir == "" {
 		if uiFS, err := frontendFS(); err == nil {

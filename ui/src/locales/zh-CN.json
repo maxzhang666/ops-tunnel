@@ -1,4 +1,17 @@
 {
+  "dashboard": {
+    "title": "仪表盘",
+    "running": "运行中",
+    "stopped": "已停止",
+    "errors": "错误",
+    "totalTraffic": "总流量",
+    "activeConns": "活跃连接",
+    "bandwidth": "实时带宽",
+    "noTrafficData": "暂无流量数据",
+    "tunnels": "隧道",
+    "noTunnels": "尚未配置隧道",
+    "conns": "{{count}} 个连接"
+  },
   "common": {
     "save": "保存",
     "saveChanges": "保存更改",
@@ -27,6 +40,7 @@
   "sidebar": {
     "title": "OpsTunnel",
     "subtitle": "SSH 隧道管理器",
+    "dashboard": "仪表盘",
     "sshConnections": "SSH 连接",
     "tunnels": "隧道",
     "settings": "设置"

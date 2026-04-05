@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/layouts/app-layout'
 import i18n from '@/lib/i18n'
 
+const DashboardPage = lazy(() => import('@/pages/dashboard'))
 const SSHConnectionsPage = lazy(() => import('@/pages/ssh-connections'))
 const SSHConnectionNewPage = lazy(() => import('@/pages/ssh-connection-new'))
 const SSHConnectionEditPage = lazy(() => import('@/pages/ssh-connection-edit'))
@@ -31,7 +32,8 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to="/ssh" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <LazyPage><DashboardPage /></LazyPage> },
       { path: 'ssh', element: <LazyPage><SSHConnectionsPage /></LazyPage> },
       { path: 'ssh/new', element: <LazyPage><SSHConnectionNewPage /></LazyPage> },
       { path: 'ssh/:id', element: <LazyPage><SSHConnectionEditPage /></LazyPage> },

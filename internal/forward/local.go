@@ -27,6 +27,8 @@ type LocalForwarder struct {
 	active    sync.WaitGroup
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
+	bytesIn   atomic.Int64
+	bytesOut  atomic.Int64
 }
 
 func (f *LocalForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
@@ -53,6 +55,8 @@ func (f *LocalForwarder) Status() Status {
 		Listen:      listen,
 		ActiveConns: int(f.activeCnt.Load()),
 		TotalConns:  f.totalCnt.Load(),
+		BytesIn:     f.bytesIn.Load(),
+		BytesOut:    f.bytesOut.Load(),
 		LastError:   f.lastErr,
 	}
 }
@@ -120,16 +124,26 @@ func (f *LocalForwarder) handleConn(local net.Conn, sshClient *gossh.Client) {
 		return
 	}
 
-	biCopy(local, remote)
+	biCopyCount(local, remote, &f.bytesIn, &f.bytesOut)
 }
 
 func biCopy(local, remote net.Conn) {
+	biCopyCount(local, remote, nil, nil)
+}
+
+func biCopyCount(local, remote net.Conn, bytesIn, bytesOut *atomic.Int64) {
 	ch := make(chan struct{}, 1)
 	go func() {
-		io.Copy(remote, local)
+		n, _ := io.Copy(remote, local)
+		if bytesOut != nil {
+			bytesOut.Add(n)
+		}
 		ch <- struct{}{}
 	}()
-	io.Copy(local, remote)
+	n, _ := io.Copy(local, remote)
+	if bytesIn != nil {
+		bytesIn.Add(n)
+	}
 	<-ch
 	local.Close()
 	remote.Close()

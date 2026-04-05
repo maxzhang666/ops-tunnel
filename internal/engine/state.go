@@ -24,6 +24,8 @@ type MappingStatus struct {
 	MappingID string `json:"mappingId"`
 	State     string `json:"state"`
 	Listen    string `json:"listen"`
+	BytesIn   int64  `json:"bytesIn"`
+	BytesOut  int64  `json:"bytesOut"`
 	Detail    string `json:"detail,omitempty"`
 }
 
@@ -33,5 +35,7 @@ type TunnelStatus struct {
 	Since     time.Time       `json:"since"`
 	Chain     []HopStatus     `json:"chain"`
 	Mappings  []MappingStatus `json:"mappings"`
+	BytesIn   int64           `json:"bytesIn"`
+	BytesOut  int64           `json:"bytesOut"`
 	LastError string          `json:"lastError,omitempty"`
 }

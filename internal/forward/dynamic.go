@@ -33,6 +33,8 @@ type DynamicForwarder struct {
 	active    sync.WaitGroup
 	activeCnt atomic.Int32
 	totalCnt  atomic.Int64
+	bytesIn   atomic.Int64
+	bytesOut  atomic.Int64
 }
 
 func (f *DynamicForwarder) SetLogger(fn LogFunc) { f.logFn = fn }
@@ -63,6 +65,8 @@ func (f *DynamicForwarder) Status() Status {
 		Listen:      listen,
 		ActiveConns: int(f.activeCnt.Load()),
 		TotalConns:  f.totalCnt.Load(),
+		BytesIn:     f.bytesIn.Load(),
+		BytesOut:    f.bytesOut.Load(),
 		LastError:   f.lastErr,
 	}
 }
@@ -243,7 +247,7 @@ func (f *DynamicForwarder) handleHTTP(conn net.Conn) {
 	}
 
 	io.WriteString(conn, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	biCopy(conn, remote)
+	biCopyCount(conn, remote, &f.bytesIn, &f.bytesOut)
 }
 
 func (f *DynamicForwarder) negotiate(conn net.Conn) error {
@@ -325,7 +329,7 @@ func (f *DynamicForwarder) handleConnect(conn net.Conn, req *Request) {
 	}
 
 	writeReply(conn, RepSuccess, remote.RemoteAddr())
-	biCopy(conn, remote)
+	biCopyCount(conn, remote, &f.bytesIn, &f.bytesOut)
 }
 
 func (f *DynamicForwarder) handleBind(conn net.Conn, req *Request) {

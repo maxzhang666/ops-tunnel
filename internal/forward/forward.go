@@ -24,5 +24,7 @@ type Status struct {
 	Listen      string `json:"listen"`
 	ActiveConns int    `json:"activeConns"`
 	TotalConns  int64  `json:"totalConns"`
+	BytesIn     int64  `json:"bytesIn"`
+	BytesOut    int64  `json:"bytesOut"`
 	LastError   string `json:"lastError,omitempty"`
 }

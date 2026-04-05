@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { Cable, Link2, Settings } from 'lucide-react'
+import { Cable, LayoutDashboard, Link2, Settings } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useVersion } from '@/hooks/use-settings'
 
 const navItems = [
+  { to: '/dashboard', labelKey: 'sidebar.dashboard', icon: LayoutDashboard },
   { to: '/ssh', labelKey: 'sidebar.sshConnections', icon: Link2 },
   { to: '/tunnels', labelKey: 'sidebar.tunnels', icon: Cable },
 ]

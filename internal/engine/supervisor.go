@@ -381,14 +381,19 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 		chain[i] = HopStatus{SSHConnID: conn.ID, State: st}
 	}
 
+	var totalIn, totalOut int64
 	mappings := make([]MappingStatus, len(s.tunnel.Mappings))
 	if len(s.fwds) > 0 {
 		for i, fwd := range s.fwds {
 			st := fwd.Status()
+			totalIn += st.BytesIn
+			totalOut += st.BytesOut
 			mappings[i] = MappingStatus{
 				MappingID: st.MappingID,
 				State:     st.State,
 				Listen:    st.Listen,
+				BytesIn:   st.BytesIn,
+				BytesOut:  st.BytesOut,
 				Detail:    st.LastError,
 			}
 		}
@@ -405,6 +410,8 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 	return TunnelStatus{
 		ID:        s.tunnel.ID,
 		State:     s.state,
+		BytesIn:   totalIn,
+		BytesOut:  totalOut,
 		Since:     s.since,
 		Chain:     chain,
 		Mappings:  mappings,

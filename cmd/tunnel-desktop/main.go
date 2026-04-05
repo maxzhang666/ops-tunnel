@@ -14,6 +14,7 @@ import (
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
 	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
+	"github.com/maxzhang666/ops-tunnel/internal/traffic"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -50,6 +51,19 @@ func main() {
 	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(*dataDir, "known_hosts.json"))
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
+	trafficStore, err := traffic.NewStore(filepath.Join(*dataDir, "traffic.db"))
+	if err != nil {
+		slog.Error("failed to open traffic db", "err", err)
+		os.Exit(1)
+	}
+	defer trafficStore.Close()
+	trafficStore.Prune(30 * 24 * time.Hour)
+
+	sampler := engine.NewTrafficSampler(eng, trafficStore)
+	samplerCtx, samplerCancel := context.WithCancel(context.Background())
+	defer samplerCancel()
+	go sampler.Run(samplerCtx)
+
 	// Find random available port for the API server
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -72,6 +86,8 @@ func main() {
 		Mode:        "desktop",
 		WsPort:      port,
 		LogLevelVar: logLevel,
+		Sampler:     sampler,
+		TrafficDB:   trafficStore,
 	}, store, cfg, eng, bus, hostKeys)
 
 	go func() {

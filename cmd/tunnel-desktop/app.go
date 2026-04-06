@@ -67,6 +67,14 @@ func (a *App) DoQuit() {
 	wailsrt.Quit(a.ctx)
 }
 
+// PickFile opens a native file dialog and returns the selected path.
+func (a *App) PickFile(title string) string {
+	path, _ := wailsrt.OpenFileDialog(a.ctx, wailsrt.OpenDialogOptions{
+		Title: title,
+	})
+	return path
+}
+
 func (a *App) ShowWindow() {
 	wailsrt.WindowShow(a.ctx)
 	wailsrt.WindowSetAlwaysOnTop(a.ctx, true)

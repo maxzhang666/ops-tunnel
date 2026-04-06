@@ -34,11 +34,9 @@ export function MappingEditor({ mode, value, onChange }: MappingEditorProps) {
 
   return (
     <div className="space-y-3">
-      <Label>{t('mapping.title')}</Label>
-
       {value.map((mapping, idx) => (
-        <Card key={idx}>
-          <CardContent className="space-y-3 pt-4">
+        <Card key={idx} className='pt-1'>
+          <CardContent className="space-y-3 pt-0">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">{t('mapping.label', { index: idx + 1 })}</span>
               {value.length > 1 && (
@@ -48,32 +46,45 @@ export function MappingEditor({ mode, value, onChange }: MappingEditorProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs">{t('mapping.listenHost')}</Label>
-                <Input value={mapping.listen.host} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, host: e.target.value } }))} placeholder="127.0.0.1" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t('mapping.listenPort')}</Label>
-                <Input type="number" value={mapping.listen.port || ''} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, port: Number(e.target.value) } }))} />
-              </div>
-            </div>
-
-            {(mode === 'local' || mode === 'remote') && (
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">{t('mapping.connectHost')}</Label>
-                  <Input value={mapping.connect?.host ?? ''} onChange={(e) => onChange(updateMapping(value, idx, { connect: { host: e.target.value, port: mapping.connect?.port ?? 0 } }))} />
+            {(mode === 'local' || mode === 'remote') ? (
+              <>
+                {/* Listen + Connect on same row */}
+                <div className="grid grid-cols-6 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">{t('mapping.listenHost')}</Label>
+                    <Input value={mapping.listen.host} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, host: e.target.value } }))} placeholder="127.0.0.1" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('mapping.listenPort')}</Label>
+                    <Input type="number" value={mapping.listen.port || ''} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, port: Number(e.target.value) } }))} />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">{t('mapping.connectHost')}</Label>
+                    <Input value={mapping.connect?.host ?? ''} onChange={(e) => onChange(updateMapping(value, idx, { connect: { host: e.target.value, port: mapping.connect?.port ?? 0 } }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('mapping.connectPort')}</Label>
+                    <Input type="number" value={mapping.connect?.port || ''} onChange={(e) => onChange(updateMapping(value, idx, { connect: { host: mapping.connect?.host ?? '', port: Number(e.target.value) } }))} />
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">{t('mapping.connectPort')}</Label>
-                  <Input type="number" value={mapping.connect?.port || ''} onChange={(e) => onChange(updateMapping(value, idx, { connect: { host: mapping.connect?.host ?? '', port: Number(e.target.value) } }))} />
+                  <Label className="text-xs">{t('mapping.notes')}</Label>
+                  <Input value={mapping.notes ?? ''} onChange={(e) => onChange(updateMapping(value, idx, { notes: e.target.value }))} placeholder={t('mapping.notesPlaceholder')} />
                 </div>
-              </div>
-            )}
-
-            {mode === 'dynamic' && (
+              </>
+            ) : (
               <>
+                {/* Dynamic: listen only */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">{t('mapping.listenHost')}</Label>
+                    <Input value={mapping.listen.host} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, host: e.target.value } }))} placeholder="127.0.0.1" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('mapping.listenPort')}</Label>
+                    <Input type="number" value={mapping.listen.port || ''} onChange={(e) => onChange(updateMapping(value, idx, { listen: { ...mapping.listen, port: Number(e.target.value) } }))} />
+                  </div>
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t('mapping.socks5Auth')}</Label>
                   <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs" value={mapping.socks5?.auth ?? 'none'} onChange={(e) => onChange(updateMapping(value, idx, { socks5: { ...mapping.socks5!, auth: e.target.value as Socks5Auth } }))}>
@@ -104,13 +115,6 @@ export function MappingEditor({ mode, value, onChange }: MappingEditorProps) {
                   </div>
                 </div>
               </>
-            )}
-
-            {(mode === 'local' || mode === 'remote') && (
-              <div className="space-y-1">
-                <Label className="text-xs">{t('mapping.notes')}</Label>
-                <Input value={mapping.notes ?? ''} onChange={(e) => onChange(updateMapping(value, idx, { notes: e.target.value }))} placeholder={t('mapping.notesPlaceholder')} />
-              </div>
             )}
           </CardContent>
         </Card>

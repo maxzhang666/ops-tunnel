@@ -2,34 +2,48 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useTestSSHConnection } from '@/hooks/use-ssh-connections'
+import { useTestSSHConnection, useTestSSHConnectionDirect } from '@/hooks/use-ssh-connections'
+import type { SSHConnection } from '@/types/api'
 
-export function SSHTestButton({ id }: { id: string }) {
+interface SSHTestButtonProps {
+  id?: string
+  getData?: () => Partial<SSHConnection>
+}
+
+export function SSHTestButton({ id, getData }: SSHTestButtonProps) {
   const { t } = useTranslation()
-  const testMutation = useTestSSHConnection()
+  const testById = useTestSSHConnection()
+  const testByData = useTestSSHConnectionDirect()
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const isPending = testById.isPending || testByData.isPending
+
+  const onResult = (data: { status: string; message: string; latencyMs?: number }) => {
+    setResult({
+      ok: data.status === 'ok',
+      msg: data.status === 'ok' ? `${data.latencyMs}ms` : data.message,
+    })
+    setTimeout(() => setResult(null), 5000)
+  }
+
+  const onError = (err: Error) => {
+    setResult({ ok: false, msg: err.message })
+    setTimeout(() => setResult(null), 5000)
+  }
 
   const handleTest = () => {
     setResult(null)
-    testMutation.mutate(id, {
-      onSuccess: (data) => {
-        setResult({
-          ok: data.status === 'ok',
-          msg: data.status === 'ok' ? `${data.latencyMs}ms` : data.message,
-        })
-        setTimeout(() => setResult(null), 5000)
-      },
-      onError: (err) => {
-        setResult({ ok: false, msg: err.message })
-        setTimeout(() => setResult(null), 5000)
-      },
-    })
+    if (id) {
+      testById.mutate(id, { onSuccess: onResult, onError })
+    } else if (getData) {
+      testByData.mutate(getData(), { onSuccess: onResult, onError })
+    }
   }
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <Button variant="outline" size="sm" onClick={handleTest} disabled={testMutation.isPending}>
-        {testMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t('common.test')}
+      <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={isPending}>
+        {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t('common.test')}
       </Button>
       {result && (
         <span className="inline-flex items-center gap-1 text-xs">

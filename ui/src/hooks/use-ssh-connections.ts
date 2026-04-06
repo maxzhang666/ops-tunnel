@@ -54,3 +54,10 @@ export function useTestSSHConnection() {
       api.post<TestResult>(`/ssh-connections/${id}/test`, {}),
   })
 }
+
+export function useTestSSHConnectionDirect() {
+  return useMutation({
+    mutationFn: (data: Partial<SSHConnection>) =>
+      api.post<TestResult>('/ssh-connections/test', data),
+  })
+}

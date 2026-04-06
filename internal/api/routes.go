@@ -25,6 +25,7 @@ func (s *Server) registerRoutes() {
 		r.Route("/ssh-connections", func(r chi.Router) {
 			r.Get("/", s.listSSHConnections)
 			r.Post("/", s.createSSHConnection)
+			r.Post("/test", s.testSSHConnectionDirect)
 			r.Get("/{id}", s.getSSHConnection)
 			r.Put("/{id}", s.updateSSHConnection)
 			r.Patch("/{id}", s.patchSSHConnection)

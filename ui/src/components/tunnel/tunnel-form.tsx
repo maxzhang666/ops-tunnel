@@ -78,32 +78,31 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-6 overflow-y-auto p-1">
+      <div className="flex-1 space-y-4 overflow-y-auto p-1">
       {error && <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
+      {/* Basic + SSH Chain merged */}
       <Card>
-        <CardHeader><CardTitle>{t('common.basic')}</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">{t('common.name')}</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <CardContent className="space-y-4 pt-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">{t('common.name')}</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('tunnel.mode')}</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs" value={mode} onChange={(e) => handleModeChange(e.target.value as TunnelMode)}>
+                <option value="local">{t('tunnel.modeLocal')}</option>
+                <option value="remote">{t('tunnel.modeRemote')}</option>
+                <option value="dynamic">{t('tunnel.modeDynamic')}</option>
+              </select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>{t('tunnel.mode')}</Label>
-            <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs" value={mode} onChange={(e) => handleModeChange(e.target.value as TunnelMode)}>
-              <option value="local">{t('tunnel.modeLocal')}</option>
-              <option value="remote">{t('tunnel.modeRemote')}</option>
-              <option value="dynamic">{t('tunnel.modeDynamic')}</option>
-            </select>
-          </div>
+          <ChainSelector value={chain} onChange={setChain} />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>{t('tunnel.sshChain')}</CardTitle></CardHeader>
-        <CardContent><ChainSelector value={chain} onChange={setChain} /></CardContent>
-      </Card>
-
+      {/* Port Mappings */}
       <Card>
         <CardHeader><CardTitle>{t('tunnel.portMappings')}</CardTitle></CardHeader>
         <CardContent><MappingEditor mode={mode} value={mappings} onChange={setMappings} /></CardContent>

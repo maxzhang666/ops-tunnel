@@ -126,6 +126,7 @@
     "dialTimeout": "Dial Timeout (ms)",
     "keepAliveInterval": "KeepAlive Interval (ms)",
     "maxMissed": "Max Missed",
+    "selectKeyFile": "Select",
     "emptyState": "No SSH connections yet. Create one to get started."
   },
   "tunnel": {

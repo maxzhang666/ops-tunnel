@@ -126,6 +126,7 @@
     "dialTimeout": "连接超时 (ms)",
     "keepAliveInterval": "心跳间隔 (ms)",
     "maxMissed": "最大丢失次数",
+    "selectKeyFile": "选择",
     "emptyState": "暂无 SSH 连接，请创建一个。"
   },
   "tunnel": {

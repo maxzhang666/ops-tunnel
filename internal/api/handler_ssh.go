@@ -169,7 +169,20 @@ func (s *Server) testSSHConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := tunnelssh.TestConnection(r.Context(), *conn, s.hostKeys)
+	s.writeTestResult(w, r, *conn)
+}
+
+func (s *Server) testSSHConnectionDirect(w http.ResponseWriter, r *http.Request) {
+	var conn config.SSHConnection
+	if err := decodeBody(r, &conn); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	s.writeTestResult(w, r, conn)
+}
+
+func (s *Server) writeTestResult(w http.ResponseWriter, r *http.Request, conn config.SSHConnection) {
+	result := tunnelssh.TestConnection(r.Context(), conn, s.hostKeys)
 	if result.OK {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":    "ok",

@@ -255,5 +255,16 @@
     "minimize": "Minimize to Tray",
     "quit": "Quit",
     "cancel": "Cancel"
+  },
+  "auth": {
+    "loginTitle": "Sign In",
+    "loginSubtitle": "Enter your credentials to continue",
+    "username": "Username",
+    "password": "Password",
+    "rememberMe": "Remember me",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "invalidCredentials": "Invalid username or password",
+    "logout": "Logout"
   }
 }

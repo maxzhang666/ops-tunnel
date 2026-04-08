@@ -255,5 +255,16 @@
     "minimize": "最小化到托盘",
     "quit": "退出",
     "cancel": "取消"
+  },
+  "auth": {
+    "loginTitle": "登录",
+    "loginSubtitle": "输入凭据以继续",
+    "username": "用户名",
+    "password": "密码",
+    "rememberMe": "记住我",
+    "signIn": "登录",
+    "signingIn": "登录中...",
+    "invalidCredentials": "用户名或密码错误",
+    "logout": "退出登录"
   }
 }

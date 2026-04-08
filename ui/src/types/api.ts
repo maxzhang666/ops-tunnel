@@ -172,3 +172,14 @@ export interface VersionInfo {
   wsPort?: number
   latest: LatestRelease | null
 }
+
+export interface AuthCheckResponse {
+  authenticated: boolean
+  required: boolean
+}
+
+export interface LoginRequest {
+  username: string
+  password: string
+  rememberMe: boolean
+}

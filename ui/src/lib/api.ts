@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from '@/types/api'
+import type { ApiErrorBody, AuthCheckResponse, LoginRequest } from '@/types/api'
 
 export class ApiError extends Error {
   status: number
@@ -23,6 +23,11 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   })
 
   if (!res.ok) {
+    // Redirect to login on 401 (skip for auth endpoints themselves)
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      window.location.href = '/login'
+      return new Promise(() => {}) // never resolves — page is navigating
+    }
     let body: ApiErrorBody
     try {
       body = await res.json()
@@ -45,4 +50,9 @@ export const api = {
   patch: <T>(path: string, data: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(data) }),
   del: (path: string) => request<void>(path, { method: 'DELETE' }),
+  authCheck: () => request<AuthCheckResponse>('/auth/check'),
+  login: (data: LoginRequest) =>
+    request<{ ok: boolean }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  logout: () =>
+    request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 }

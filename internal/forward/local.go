@@ -138,15 +138,15 @@ func biCopyCount(local, remote net.Conn, bytesIn, bytesOut *atomic.Int64) {
 		if bytesOut != nil {
 			bytesOut.Add(n)
 		}
+		remote.Close()
 		ch <- struct{}{}
 	}()
 	n, _ := io.Copy(local, remote)
 	if bytesIn != nil {
 		bytesIn.Add(n)
 	}
-	<-ch
 	local.Close()
-	remote.Close()
+	<-ch
 }
 
 // Stop closes the listener and waits for active connections to drain.

@@ -147,9 +147,9 @@ func main() {
 	defer close(cleanupDone)
 	srv.StartSessionCleanup(10*time.Minute, cleanupDone)
 
-	// Restore previously enabled tunnels
+	// Auto-start tunnels with policy.autoStart enabled
 	for _, t := range cfg.Tunnels {
-		if t.Enabled {
+		if t.Policy.AutoStart {
 			go eng.StartTunnel(context.Background(), t.ID)
 		}
 	}

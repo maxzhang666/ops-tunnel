@@ -52,8 +52,33 @@ func (s *FileStore) Load(_ context.Context) (*Config, error) {
 		cfg.Tunnels = []Tunnel{}
 	}
 
+	migrateEnabledToAutoStart(data, &cfg)
 	ApplyConfigDefaults(&cfg)
 	return &cfg, nil
+}
+
+// migrateEnabledToAutoStart reads the legacy "enabled" field from raw JSON
+// and sets policy.autoStart=true for tunnels that had enabled=true.
+func migrateEnabledToAutoStart(data []byte, cfg *Config) {
+	var raw struct {
+		Tunnels []struct {
+			ID      string `json:"id"`
+			Enabled bool   `json:"enabled"`
+		} `json:"tunnels"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return
+	}
+	for _, rt := range raw.Tunnels {
+		if !rt.Enabled {
+			continue
+		}
+		for i := range cfg.Tunnels {
+			if cfg.Tunnels[i].ID == rt.ID && !cfg.Tunnels[i].Policy.AutoStart {
+				cfg.Tunnels[i].Policy.AutoStart = true
+			}
+		}
+	}
 }
 
 // Save writes config to disk atomically: write temp -> fsync -> rename.

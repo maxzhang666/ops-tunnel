@@ -7,9 +7,9 @@ services:
     volumes:
       - tunnel-data:/data
     environment:
-      - TUNNEL_TOKEN=
-      # - TUNNEL_ADMIN_PASSWORD=changeme
-      # - TUNNEL_ADMIN_USERNAME=admin
+      - TUNNEL_ADMIN_USERNAME=admin
+      - TUNNEL_ADMIN_PASSWORD=changeme
+      # - TUNNEL_TOKEN=
     restart: unless-stopped
 
 volumes:

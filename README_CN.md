@@ -36,11 +36,12 @@
 docker run -d --name ops-tunnel \
   -p 9876:9876 \
   -v tunnel-data:/data \
+  -e TUNNEL_ADMIN_USERNAME=admin \
   -e TUNNEL_ADMIN_PASSWORD=your-password \
   ghcr.io/maxzhang666/ops-tunnel:latest
 ```
 
-打开 http://localhost:9876 ，使用用户名 `admin` 和设置的密码登录。
+打开 http://localhost:9876 ，使用设置的用户名和密码登录。
 
 ### Docker Compose
 

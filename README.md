@@ -36,11 +36,12 @@ Download the latest release for your platform from [Releases](https://github.com
 docker run -d --name ops-tunnel \
   -p 9876:9876 \
   -v tunnel-data:/data \
+  -e TUNNEL_ADMIN_USERNAME=admin \
   -e TUNNEL_ADMIN_PASSWORD=your-password \
   ghcr.io/maxzhang666/ops-tunnel:latest
 ```
 
-Open http://localhost:9876 and sign in with username `admin` and the password you set.
+Open http://localhost:9876 and sign in with the username and password you set.
 
 ### Docker Compose
 

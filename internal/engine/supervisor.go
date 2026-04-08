@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/maxzhang666/ops-tunnel/internal/config"
@@ -24,6 +25,9 @@ type tunnelSupervisor struct {
 	lastErr  string
 	chain    *tunnelssh.ChainResult
 	fwds     []forward.Forwarder
+
+	cumBytesIn  atomic.Int64 // cumulative bytes across forwarder restarts
+	cumBytesOut atomic.Int64
 
 	loopCtx    context.Context
 	loopCancel context.CancelFunc
@@ -56,6 +60,8 @@ func (s *tunnelSupervisor) Start(ctx context.Context) error {
 	s.loopDone = make(chan struct{})
 	s.restartCount = 0
 	s.restartTimes = nil
+	s.cumBytesIn.Store(0)
+	s.cumBytesOut.Store(0)
 	s.setState(StateStarting)
 
 	go s.runLoop()
@@ -204,6 +210,15 @@ func (s *tunnelSupervisor) runLoop() {
 		if errMsg != "" {
 			s.publishLog("warn", errMsg)
 		}
+
+		// Snapshot forwarder traffic before cleanup resets them.
+		s.mu.RLock()
+		for _, fwd := range s.fwds {
+			st := fwd.Status()
+			s.cumBytesIn.Add(st.BytesIn)
+			s.cumBytesOut.Add(st.BytesOut)
+		}
+		s.mu.RUnlock()
 
 		s.cleanup()
 
@@ -381,7 +396,8 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 		chain[i] = HopStatus{SSHConnID: conn.ID, State: st}
 	}
 
-	var totalIn, totalOut int64
+	totalIn := s.cumBytesIn.Load()
+	totalOut := s.cumBytesOut.Load()
 	mappings := make([]MappingStatus, len(s.tunnel.Mappings))
 	if len(s.fwds) > 0 {
 		for i, fwd := range s.fwds {

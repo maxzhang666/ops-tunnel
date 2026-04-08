@@ -134,19 +134,36 @@ func biCopy(local, remote net.Conn) {
 func biCopyCount(local, remote net.Conn, bytesIn, bytesOut *atomic.Int64) {
 	ch := make(chan struct{}, 1)
 	go func() {
-		n, _ := io.Copy(remote, local)
+		dst := io.Writer(remote)
 		if bytesOut != nil {
-			bytesOut.Add(n)
+			dst = &countingWriter{w: remote, n: bytesOut}
 		}
+		io.Copy(dst, local)
 		remote.Close()
 		ch <- struct{}{}
 	}()
-	n, _ := io.Copy(local, remote)
+	dst := io.Writer(local)
 	if bytesIn != nil {
-		bytesIn.Add(n)
+		dst = &countingWriter{w: local, n: bytesIn}
 	}
+	io.Copy(dst, remote)
 	local.Close()
 	<-ch
+}
+
+// countingWriter wraps an io.Writer and atomically increments a counter
+// on each Write call, providing real-time byte tracking for long-lived connections.
+type countingWriter struct {
+	w io.Writer
+	n *atomic.Int64
+}
+
+func (cw *countingWriter) Write(p []byte) (int, error) {
+	n, err := cw.w.Write(p)
+	if n > 0 {
+		cw.n.Add(int64(n))
+	}
+	return n, err
 }
 
 // Stop closes the listener and waits for active connections to drain.

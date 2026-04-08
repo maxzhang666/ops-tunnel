@@ -379,7 +379,7 @@ func (f *DynamicForwarder) handleBind(conn net.Conn, req *Request) {
 	}
 
 	writeReply(conn, RepSuccess, inbound.RemoteAddr())
-	biCopy(conn, inbound)
+	biCopyCount(conn, inbound, &f.bytesIn, &f.bytesOut)
 }
 
 func (f *DynamicForwarder) Stop(ctx context.Context) error {

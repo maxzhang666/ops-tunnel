@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -17,14 +18,17 @@ type Store interface {
 }
 
 // FileStore persists config as a JSON file with atomic writes.
+// Sensitive fields are encrypted at rest via the provided Encryptor.
 type FileStore struct {
 	path string
+	enc  Encryptor
 	mu   sync.RWMutex
 }
 
 // NewFileStore creates a store backed by the given file path.
-func NewFileStore(path string) *FileStore {
-	return &FileStore{path: path}
+// The encryptor is used to encrypt/decrypt sensitive credential fields.
+func NewFileStore(path string, enc Encryptor) *FileStore {
+	return &FileStore{path: path, enc: enc}
 }
 
 // Load reads config from disk. Returns empty config if file doesn't exist.
@@ -50,6 +54,10 @@ func (s *FileStore) Load(_ context.Context) (*Config, error) {
 	}
 	if cfg.Tunnels == nil {
 		cfg.Tunnels = []Tunnel{}
+	}
+
+	if err := decryptConfig(&cfg, s.enc); err != nil {
+		return nil, fmt.Errorf("decrypt config: %w", err)
 	}
 
 	migrateEnabledToAutoStart(data, &cfg)
@@ -86,7 +94,12 @@ func (s *FileStore) Save(_ context.Context, cfg *Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	persisted, err := encryptConfig(cfg, s.enc)
+	if err != nil {
+		return fmt.Errorf("encrypt config: %w", err)
+	}
+
+	data, err := json.MarshalIndent(persisted, "", "  ")
 	if err != nil {
 		return err
 	}

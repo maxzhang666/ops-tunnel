@@ -118,6 +118,8 @@
     "privateKeyPlaceholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
     "passphrase": "密码短语（可选）",
     "passwordUnchanged": "（留空则保持不变）",
+    "revealPassword": "显示",
+    "hidePassword": "隐藏",
     "authentication": "认证",
     "hostKeyVerification": "主机密钥验证",
     "hostKeyAcceptNew": "接受新密钥",

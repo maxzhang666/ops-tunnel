@@ -34,7 +34,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	store := config.NewFileStore(filepath.Join(*dataDir, "config.json"))
+	enc, encErr := config.InitEncryptor("desktop", *dataDir)
+	if encErr != nil {
+		slog.Warn("credential encryption unavailable", "err", encErr)
+		enc = config.NopEncryptor{}
+	}
+	store := config.NewFileStore(filepath.Join(*dataDir, "config.json"), enc)
 
 	ctx := context.Background()
 	cfg, err := store.Load(ctx)

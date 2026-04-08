@@ -39,6 +39,7 @@ func (s *Server) registerRoutes() {
 			r.Patch("/{id}", s.patchSSHConnection)
 			r.Delete("/{id}", s.deleteSSHConnection)
 			r.Post("/{id}/test", s.testSSHConnection)
+			r.Post("/{id}/reveal", s.revealSSHConnection)
 		})
 
 		r.Route("/tunnels", func(r chi.Router) {

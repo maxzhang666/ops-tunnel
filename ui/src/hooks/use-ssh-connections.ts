@@ -55,6 +55,13 @@ export function useTestSSHConnection() {
   })
 }
 
+export function useRevealSSHConnection() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<SSHConnection>(`/ssh-connections/${id}/reveal`, {}),
+  })
+}
+
 export function useTestSSHConnectionDirect() {
   return useMutation({
     mutationFn: (data: Partial<SSHConnection>) =>

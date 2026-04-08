@@ -1,17 +1,67 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen } from 'lucide-react'
+import { Eye, EyeOff, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SSHTestButton } from './ssh-test-button'
+import { PasswordRevealInput } from './password-reveal-input'
 import { Input } from '@/components/ui/input'
+import { useRevealSSHConnection } from '@/hooks/use-ssh-connections'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { ApiError } from '@/lib/api'
 import { translateValidationErrors } from '@/lib/api-errors'
 import type { SSHConnection, AuthType, PrivateKeySource, HostKeyVerifyMode } from '@/types/api'
 
 const isDesktop = typeof window !== 'undefined' && 'go' in window
+
+function KeyPemRevealField({ connectionId, value, onChange, placeholder, label }: {
+  connectionId?: string
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  label: string
+}) {
+  const [visible, setVisible] = useState(true)
+  const reveal = useRevealSSHConnection()
+
+  const toggle = async () => {
+    if (visible) {
+      setVisible(false)
+      return
+    }
+    if (connectionId && !value) {
+      try {
+        const conn = await reveal.mutateAsync(connectionId)
+        const pem = conn.auth?.privateKey?.keyPem ?? ''
+        if (pem) onChange(pem)
+      } catch { /* ignore */ }
+    }
+    setVisible(true)
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Label htmlFor="keyPem">{label}</Label>
+        {connectionId && (
+          <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground" onClick={toggle} tabIndex={-1}>
+            {visible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          </Button>
+        )}
+      </div>
+      <Textarea
+        id="keyPem"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={6}
+        className={cn('font-mono text-xs', !visible && 'text-transparent selection:bg-transparent [text-shadow:0_0_8px_rgba(0,0,0,0.5)] dark:[text-shadow:0_0_8px_rgba(255,255,255,0.3)]')}
+        placeholder={placeholder}
+      />
+    </>
+  )
+}
 
 interface SSHFormProps {
   initialData?: SSHConnection
@@ -149,9 +199,12 @@ export function SSHForm({ initialData, onSubmit, submitLabel, onCancel }: SSHFor
           {authType === 'password' && (
             <div className="space-y-2">
               <Label htmlFor="password">{t('common.password')}</Label>
-              <Input
-                id="password" type="password" value={password}
+              <PasswordRevealInput
+                id="password" value={password}
+                connectionId={initialData?.id}
+                fieldPath="password"
                 onChange={(e) => setPassword(e.target.value)}
+                onRevealValue={setPassword}
                 placeholder={initialData ? t('ssh.passwordUnchanged') : ''}
               />
             </div>
@@ -186,18 +239,35 @@ export function SSHForm({ initialData, onSubmit, submitLabel, onCancel }: SSHFor
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="passphrase">{t('ssh.passphrase')}</Label>
-                    <Input id="passphrase" type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+                    <PasswordRevealInput
+                      id="passphrase" value={passphrase}
+                      connectionId={initialData?.id}
+                      fieldPath="passphrase"
+                      onChange={(e) => setPassphrase(e.target.value)}
+                      onRevealValue={setPassphrase}
+                    />
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="keyPem">{t('ssh.privateKeyPem')}</Label>
-                    <Textarea id="keyPem" value={keyPem} onChange={(e) => setKeyPem(e.target.value)} rows={6} className="font-mono text-xs" placeholder={t('ssh.privateKeyPlaceholder')} />
+                    <KeyPemRevealField
+                      connectionId={initialData?.id}
+                      value={keyPem}
+                      onChange={setKeyPem}
+                      placeholder={t('ssh.privateKeyPlaceholder')}
+                      label={t('ssh.privateKeyPem')}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="passphrase">{t('ssh.passphrase')}</Label>
-                    <Input id="passphrase" type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+                    <PasswordRevealInput
+                      id="passphrase" value={passphrase}
+                      connectionId={initialData?.id}
+                      fieldPath="passphrase"
+                      onChange={(e) => setPassphrase(e.target.value)}
+                      onRevealValue={setPassphrase}
+                    />
                   </div>
                 </>
               )}

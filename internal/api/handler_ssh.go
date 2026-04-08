@@ -67,6 +67,22 @@ func (s *Server) getSSHConnection(w http.ResponseWriter, r *http.Request) {
 	writeNotFound(w, "ssh-connection", id)
 }
 
+// revealSSHConnection returns the full SSH connection with plaintext credentials.
+func (s *Server) revealSSHConnection(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, c := range s.data.SSHConnections {
+		if c.ID == id {
+			writeJSON(w, http.StatusOK, c)
+			return
+		}
+	}
+	writeNotFound(w, "ssh-connection", id)
+}
+
 func (s *Server) updateSSHConnection(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

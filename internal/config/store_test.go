@@ -10,7 +10,7 @@ import (
 func TestFileStore_LoadEmpty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	store := NewFileStore(path)
+	store := NewFileStore(path, NopEncryptor{})
 
 	cfg, err := store.Load(context.Background())
 	if err != nil {
@@ -30,7 +30,7 @@ func TestFileStore_LoadEmpty(t *testing.T) {
 func TestFileStore_SaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	store := NewFileStore(path)
+	store := NewFileStore(path, NopEncryptor{})
 	ctx := context.Background()
 
 	cfg := NewConfig()
@@ -67,7 +67,7 @@ func TestFileStore_SaveAndLoad(t *testing.T) {
 func TestFileStore_AtomicWrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	store := NewFileStore(path)
+	store := NewFileStore(path, NopEncryptor{})
 	ctx := context.Background()
 
 	cfg := NewConfig()

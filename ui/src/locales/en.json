@@ -118,6 +118,8 @@
     "privateKeyPlaceholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
     "passphrase": "Passphrase (optional)",
     "passwordUnchanged": "(unchanged if empty)",
+    "revealPassword": "Show",
+    "hidePassword": "Hide",
     "authentication": "Authentication",
     "hostKeyVerification": "Host Key Verification",
     "hostKeyAcceptNew": "Accept New",

@@ -106,6 +106,7 @@ func main() {
 	}
 
 	InitI18n(cfg)
+	syncAutoStart(cfg, bus)
 	app := NewApp(cfg, store, eng, bus)
 
 	slog.Info("desktop starting", "api", fmt.Sprintf("http://localhost:%d", port))

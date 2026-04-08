@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Pencil, Power, PowerOff, RotateCw, Trash2 } from 'lucide-react'
+import { Loader2, Pencil, Power, PowerOff, RotateCw, Timer, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSSHConnections } from '@/hooks/use-ssh-connections'
@@ -100,6 +100,11 @@ export function TunnelCard({ tunnel, status, onEdit, onDelete }: TunnelCardProps
             <Badge variant="secondary" className={cn(mode.bg, mode.text, 'text-[11px]')}>
               {t(modeLabels[tunnel.mode] ?? 'tunnel.modeLabelLocal')}
             </Badge>
+            {tunnel.policy.autoStart && (
+              <span title={t('tunnel.autoStartBoot')} className="text-muted-foreground">
+                <Timer className="h-3.5 w-3.5" />
+              </span>
+            )}
           </div>
           <div className="mb-2 text-xs text-muted-foreground">{chainNames}</div>
           <div className="flex flex-wrap gap-2">

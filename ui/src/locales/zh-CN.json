@@ -172,7 +172,9 @@
     "tabConfig": "配置",
     "chainEmpty": "未选择 SSH 连接，请至少添加一个。",
     "chainAddPlaceholder": "+ 添加 SSH 连接...",
-    "disconnected": "未连接"
+    "disconnected": "未连接",
+    "autoStartBoot": "随服务启动",
+    "autoStartBootDesc": "服务启动时自动开启此隧道"
   },
   "mapping": {
     "title": "映射",

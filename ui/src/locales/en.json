@@ -172,7 +172,9 @@
     "tabConfig": "Config",
     "chainEmpty": "No SSH connections selected. Add at least one.",
     "chainAddPlaceholder": "+ Add SSH connection...",
-    "disconnected": "disconnected"
+    "disconnected": "disconnected",
+    "autoStartBoot": "Auto Start on Boot",
+    "autoStartBootDesc": "Start this tunnel when the service starts"
   },
   "mapping": {
     "title": "Mappings",

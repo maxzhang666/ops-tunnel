@@ -30,6 +30,7 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
   const [mode, setMode] = useState<TunnelMode>(initialData?.mode ?? 'local')
   const [chain, setChain] = useState<string[]>(initialData?.chain ?? [])
   const [mappings, setMappings] = useState<Mapping[]>(initialData?.mappings ?? [defaultMapping('local')])
+  const [autoStartBoot, setAutoStartBoot] = useState(initialData?.policy?.autoStart ?? false)
   const [autoRestart, setAutoRestart] = useState(initialData?.policy?.autoRestart ?? true)
   const [backoffMin, setBackoffMin] = useState(initialData?.policy?.restartBackoff?.minMs ?? 500)
   const [backoffMax, setBackoffMax] = useState(initialData?.policy?.restartBackoff?.maxMs ?? 15000)
@@ -53,7 +54,7 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
     const data: Partial<Tunnel> = {
       name, mode, chain, mappings,
       policy: {
-        autoStart: false,
+        autoStart: autoStartBoot,
         autoRestart,
         restartBackoff: { minMs: backoffMin, maxMs: backoffMax, factor: backoffFactor },
         maxRestartsPerHour: maxRestarts,
@@ -118,6 +119,10 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
         <Card>
           <CardHeader><CardTitle>{t('tunnel.policy')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={autoStartBoot} onChange={(e) => setAutoStartBoot(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+              <span className="text-sm">{t('tunnel.autoStartBoot')}</span>
+            </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={autoRestart} onChange={(e) => setAutoRestart(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
               <span className="text-sm">{t('tunnel.autoRestart')}</span>

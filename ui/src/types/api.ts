@@ -77,7 +77,6 @@ export interface Policy {
 export interface Tunnel {
   id: string
   name: string
-  enabled: boolean
   mode: TunnelMode
   chain: string[]
   mappings: Mapping[]

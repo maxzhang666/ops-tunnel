@@ -163,6 +163,7 @@ func (s *Server) deleteTunnel(w http.ResponseWriter, r *http.Request) {
 
 type tunnelPatch struct {
 	Name     *string            `json:"name,omitempty"`
+	Notes    *string            `json:"notes,omitempty"`
 	Mode     *config.TunnelMode `json:"mode,omitempty"`
 	Chain    []string           `json:"chain,omitempty"`
 	Mappings []config.Mapping   `json:"mappings,omitempty"`
@@ -198,6 +199,9 @@ func (s *Server) patchTunnel(w http.ResponseWriter, r *http.Request) {
 
 	if patch.Name != nil {
 		tun.Name = *patch.Name
+	}
+	if patch.Notes != nil {
+		tun.Notes = *patch.Notes
 	}
 	if patch.Mode != nil {
 		tun.Mode = *patch.Mode

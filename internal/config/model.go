@@ -125,6 +125,7 @@ type Policy struct {
 type Tunnel struct {
 	ID       string     `json:"id"`
 	Name     string     `json:"name"`
+	Notes    string     `json:"notes,omitempty"`
 	Mode     TunnelMode `json:"mode"`
 	Chain    []string   `json:"chain"`
 	Mappings []Mapping  `json:"mappings"`

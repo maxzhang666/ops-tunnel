@@ -174,7 +174,9 @@
     "chainAddPlaceholder": "+ Add SSH connection...",
     "disconnected": "disconnected",
     "autoStartBoot": "Auto Start on Boot",
-    "autoStartBootDesc": "Start this tunnel when the service starts"
+    "autoStartBootDesc": "Start this tunnel when the service starts",
+    "notes": "Notes",
+    "notesPlaceholder": "e.g., Production database proxy"
   },
   "mapping": {
     "title": "Mappings",

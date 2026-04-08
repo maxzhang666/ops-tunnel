@@ -27,6 +27,7 @@ function defaultMapping(mode: TunnelMode): Mapping {
 export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: TunnelFormProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name ?? '')
+  const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [mode, setMode] = useState<TunnelMode>(initialData?.mode ?? 'local')
   const [chain, setChain] = useState<string[]>(initialData?.chain ?? [])
   const [mappings, setMappings] = useState<Mapping[]>(initialData?.mappings ?? [defaultMapping('local')])
@@ -52,7 +53,7 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
     setSubmitting(true)
 
     const data: Partial<Tunnel> = {
-      name, mode, chain, mappings,
+      name, notes, mode, chain, mappings,
       policy: {
         autoStart: autoStartBoot,
         autoRestart,
@@ -99,6 +100,14 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
               </select>
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">{t('tunnel.notes')}</Label>
+            <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('tunnel.notesPlaceholder')} />
+          </div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={autoStartBoot} onChange={(e) => setAutoStartBoot(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+            <span className="text-sm">{t('tunnel.autoStartBoot')}</span>
+          </label>
           <ChainSelector value={chain} onChange={setChain} />
         </CardContent>
       </Card>
@@ -119,10 +128,6 @@ export function TunnelForm({ initialData, onSubmit, submitLabel, onCancel }: Tun
         <Card>
           <CardHeader><CardTitle>{t('tunnel.policy')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={autoStartBoot} onChange={(e) => setAutoStartBoot(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-              <span className="text-sm">{t('tunnel.autoStartBoot')}</span>
-            </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={autoRestart} onChange={(e) => setAutoRestart(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
               <span className="text-sm">{t('tunnel.autoRestart')}</span>

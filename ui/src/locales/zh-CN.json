@@ -174,7 +174,9 @@
     "chainAddPlaceholder": "+ 添加 SSH 连接...",
     "disconnected": "未连接",
     "autoStartBoot": "随服务启动",
-    "autoStartBootDesc": "服务启动时自动开启此隧道"
+    "autoStartBootDesc": "服务启动时自动开启此隧道",
+    "notes": "备注",
+    "notesPlaceholder": "如：生产数据库代理"
   },
   "mapping": {
     "title": "映射",

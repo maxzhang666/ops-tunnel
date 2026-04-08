@@ -258,7 +258,7 @@
   },
   "auth": {
     "loginTitle": "登录",
-    "loginSubtitle": "请先登录",
+    "loginSubtitle": "SSH 隧道管理器",
     "username": "用户名",
     "password": "密码",
     "rememberMe": "记住我",

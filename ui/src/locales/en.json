@@ -258,7 +258,7 @@
   },
   "auth": {
     "loginTitle": "Sign In",
-    "loginSubtitle": "Enter your credentials to continue",
+    "loginSubtitle": "SSH Tunnel Manager",
     "username": "Username",
     "password": "Password",
     "rememberMe": "Remember me",

@@ -258,7 +258,7 @@
   },
   "auth": {
     "loginTitle": "登录",
-    "loginSubtitle": "输入凭据以继续",
+    "loginSubtitle": "请先登录",
     "username": "用户名",
     "password": "密码",
     "rememberMe": "记住我",

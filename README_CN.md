@@ -19,7 +19,7 @@
 - **三种隧道模式** — 本地转发 (-L)、远程转发 (-R)、动态 SOCKS5 (-D)
 - **自动重连** — 连接断开后自动恢复，支持配置重试策略
 - **流量仪表盘** — 实时带宽图表、各隧道流量统计、连接数监控
-- **Web 认证** — Server/Docker 部署支持登录页面和会话 cookie；API 访问支持 Bearer Token
+- **登录保护** — Server/Docker 模式下可开启登录页，也支持 Token 方式调用 API
 - **桌面应用** — 原生窗口 + 系统托盘图标，一眼查看隧道状态
 - **Docker 部署** — 一条命令启动，数据持久化
 - **多语言** — 支持英文和简体中文
@@ -58,18 +58,18 @@ docker compose up -d
 
 ## 配置
 
-所有选项均可通过命令行参数或环境变量设置。未显式指定参数时，环境变量生效。
+支持命令行参数和环境变量两种方式，环境变量在未指定对应参数时生效。
 
 | 环境变量 | 命令行参数 | 默认值 | 说明 |
 |---------|-----------|-------|------|
 | `TUNNEL_LISTEN` | `--listen` | `127.0.0.1:9876` | HTTP 监听地址 |
-| `TUNNEL_DATA_DIR` | `--data-dir` | `./data` | 配置、认证和流量数据目录 |
-| `TUNNEL_UI_DIR` | `--ui-dir` | (内嵌) | 静态 UI 文件路径（覆盖内嵌 UI） |
-| `TUNNEL_TOKEN` | `--token` | (无) | API 访问的 Bearer Token |
-| `TUNNEL_ADMIN_PASSWORD` | — | (无) | Web UI 管理员密码，不设置则无需登录 |
-| `TUNNEL_ADMIN_USERNAME` | — | `admin` | 管理员用户名（配合 `TUNNEL_ADMIN_PASSWORD` 使用） |
+| `TUNNEL_DATA_DIR` | `--data-dir` | `./data` | 数据目录 |
+| `TUNNEL_UI_DIR` | `--ui-dir` | (内嵌) | 自定义前端文件路径 |
+| `TUNNEL_TOKEN` | `--token` | (无) | API 调用凭证 |
+| `TUNNEL_ADMIN_PASSWORD` | — | (无) | 管理后台密码，不设置则免登录 |
+| `TUNNEL_ADMIN_USERNAME` | — | `admin` | 管理后台用户名 |
 
-未设置 `TUNNEL_ADMIN_PASSWORD` 时，Web UI 无需认证即可访问。
+不设置 `TUNNEL_ADMIN_PASSWORD` 时，打开页面直接可用，无需登录。
 
 ## 许可证
 

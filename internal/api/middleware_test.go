@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func dummyHandler() http.Handler {
@@ -14,10 +15,14 @@ func dummyHandler() http.Handler {
 	})
 }
 
-func TestTokenAuth_ValidToken(t *testing.T) {
-	h := TokenAuth("secret")(dummyHandler())
+func TestAuth_ValidSessionCookie(t *testing.T) {
+	s := &Server{sessions: NewSessionStore()}
+	s.webAuth = &webAuthConfig{Username: "admin", PasswordHash: "hash"}
+	sess := s.sessions.Create(time.Hour)
+
+	h := s.Auth(dummyHandler())
 	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
-	req.Header.Set("Authorization", "Bearer secret")
+	req.AddCookie(&http.Cookie{Name: "session", Value: sess.Token})
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -25,34 +30,69 @@ func TestTokenAuth_ValidToken(t *testing.T) {
 	}
 }
 
-func TestTokenAuth_MissingToken(t *testing.T) {
-	h := TokenAuth("secret")(dummyHandler())
-	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("status = %d, want 401", w.Code)
+func TestAuth_ValidBearerToken(t *testing.T) {
+	s := &Server{
+		cfg:      ServerConfig{Token: "mytoken"},
+		sessions: NewSessionStore(),
 	}
-}
+	s.webAuth = &webAuthConfig{Username: "admin", PasswordHash: "hash"}
 
-func TestTokenAuth_WrongToken(t *testing.T) {
-	h := TokenAuth("secret")(dummyHandler())
+	h := s.Auth(dummyHandler())
 	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
-	req.Header.Set("Authorization", "Bearer wrong")
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("status = %d, want 401", w.Code)
-	}
-}
-
-func TestTokenAuth_EmptyConfigToken(t *testing.T) {
-	h := TokenAuth("")(dummyHandler())
-	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
+	req.Header.Set("Authorization", "Bearer mytoken")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want 200 (auth skipped)", w.Code)
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+}
+
+func TestAuth_NeitherCookieNorToken(t *testing.T) {
+	s := &Server{sessions: NewSessionStore()}
+	s.webAuth = &webAuthConfig{Username: "admin", PasswordHash: "hash"}
+
+	h := s.Auth(dummyHandler())
+	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestAuth_ExpiredCookie_FallsBackToToken(t *testing.T) {
+	s := &Server{
+		cfg:      ServerConfig{Token: "mytoken"},
+		sessions: NewSessionStore(),
+	}
+	s.webAuth = &webAuthConfig{Username: "admin", PasswordHash: "hash"}
+	expired := s.sessions.Create(-time.Second)
+
+	h := s.Auth(dummyHandler())
+	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: expired.Token})
+	req.Header.Set("Authorization", "Bearer mytoken")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 via token fallback", w.Code)
+	}
+}
+
+func TestAuth_TokenOnlyMode(t *testing.T) {
+	s := &Server{
+		cfg:      ServerConfig{Token: "secret"},
+		sessions: NewSessionStore(),
+	}
+	// webAuth is nil — token-only mode
+
+	h := s.Auth(dummyHandler())
+	req := httptest.NewRequest("GET", "/api/v1/tunnels", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
 	}
 }
 

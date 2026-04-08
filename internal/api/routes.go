@@ -17,9 +17,7 @@ func (s *Server) registerRoutes() {
 	s.router.Get("/ws", s.handleWebSocket)
 
 	s.router.Route("/api/v1", func(r chi.Router) {
-		if s.cfg.Token != "" {
-			r.Use(TokenAuth(s.cfg.Token))
-		}
+		r.Use(s.Auth)
 		r.Use(MaxBodySize(1 << 20))
 
 		r.Route("/ssh-connections", func(r chi.Router) {

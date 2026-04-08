@@ -2,25 +2,30 @@ package api
 
 import (
 	"net/http"
-	"strings"
 )
 
-// TokenAuth returns middleware that validates Bearer token authentication.
-func TokenAuth(token string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token == "" {
+// Auth returns middleware that validates session cookie or bearer token.
+func (s *Server) Auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Session cookie
+		if s.sessions != nil {
+			if c, err := r.Cookie("session"); err == nil {
+				if s.sessions.Valid(c.Value) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+		}
+		// 2. Bearer token
+		if s.cfg.Token != "" {
+			auth := r.Header.Get("Authorization")
+			if len(auth) > 7 && auth[:7] == "Bearer " && auth[7:] == s.cfg.Token {
 				next.ServeHTTP(w, r)
 				return
 			}
-			auth := r.Header.Get("Authorization")
-			if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != token {
-				writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
+		}
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
+	})
 }
 
 // CORS adds permissive CORS headers for localhost development.

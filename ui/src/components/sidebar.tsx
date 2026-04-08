@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { Cable, LayoutDashboard, Link2, Settings } from 'lucide-react'
+import { Cable, LayoutDashboard, Link2, LogOut, Settings } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useVersion } from '@/hooks/use-settings'
+import { useAuth, useLogout } from '@/hooks/use-auth'
 
 const navItems = [
   { to: '/dashboard', labelKey: 'sidebar.dashboard', icon: LayoutDashboard },
@@ -14,6 +15,8 @@ const navItems = [
 export function Sidebar() {
   const { t } = useTranslation()
   const { data: version } = useVersion()
+  const auth = useAuth()
+  const logout = useLogout()
   const hasUpdate = version?.latest && version.latest.version !== version.version && version.version !== 'dev'
 
   return (
@@ -62,6 +65,20 @@ export function Sidebar() {
           )}
         </NavLink>
       </div>
+      {auth.required && (
+        <>
+          <Separator />
+          <div className="px-2 py-3">
+            <button
+              onClick={logout}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              {t('auth.logout')}
+            </button>
+          </div>
+        </>
+      )}
     </aside>
   )
 }

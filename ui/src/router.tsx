@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router'
 import { AppLayout } from '@/layouts/app-layout'
 import i18n from '@/lib/i18n'
+import { useAuthQuery, AuthContext } from '@/hooks/use-auth'
 
 const DashboardPage = lazy(() => import('@/pages/dashboard'))
 const SSHConnectionsPage = lazy(() => import('@/pages/ssh-connections'))
@@ -13,6 +14,33 @@ const TunnelEditPage = lazy(() => import('@/pages/tunnel-edit'))
 const TunnelDetailPage = lazy(() => import('@/pages/tunnel-detail'))
 const SettingsPage = lazy(() => import('@/pages/settings'))
 const NotFoundPage = lazy(() => import('@/pages/not-found'))
+const LoginPage = lazy(() => import('@/pages/login'))
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { data, isLoading } = useAuthQuery()
+  const location = useLocation()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-muted-foreground">{i18n.t('common.loading')}</div>
+      </div>
+    )
+  }
+
+  const required = data?.required ?? false
+  const authenticated = data?.authenticated ?? false
+
+  if (required && !authenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  return (
+    <AuthContext.Provider value={{ required, authenticated, checking: isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -30,7 +58,11 @@ function LazyPage({ children }: { children: React.ReactNode }) {
 
 export const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    path: 'login',
+    element: <LazyPage><LoginPage /></LazyPage>,
+  },
+  {
+    element: <AuthGuard><AppLayout /></AuthGuard>,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <LazyPage><DashboardPage /></LazyPage> },

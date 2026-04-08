@@ -16,8 +16,18 @@ func (s *Server) registerRoutes() {
 	s.router.Get("/healthz", s.handleHealthz)
 	s.router.Get("/ws", s.handleWebSocket)
 
+	// Auth endpoints (always accessible, no auth middleware)
+	s.router.Route("/api/v1/auth", func(r chi.Router) {
+		r.Use(MaxBodySize(1 << 20))
+		r.Post("/login", s.handleLogin)
+		r.Post("/logout", s.handleLogout)
+		r.Get("/check", s.handleAuthCheck)
+	})
+
 	s.router.Route("/api/v1", func(r chi.Router) {
-		r.Use(s.Auth)
+		if s.webAuth != nil || s.cfg.Token != "" {
+			r.Use(s.Auth)
+		}
 		r.Use(MaxBodySize(1 << 20))
 
 		r.Route("/ssh-connections", func(r chi.Router) {

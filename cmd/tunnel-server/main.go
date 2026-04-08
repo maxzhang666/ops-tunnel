@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/maxzhang666/ops-tunnel/internal/api"
 	"github.com/maxzhang666/ops-tunnel/internal/config"
 	"github.com/maxzhang666/ops-tunnel/internal/engine"
@@ -74,6 +76,37 @@ func main() {
 		"tunnels", len(cfg.Tunnels),
 	)
 
+	authStore := config.NewAuthStore(filepath.Join(dataDir, "auth.json"))
+
+	if adminPass := os.Getenv("TUNNEL_ADMIN_PASSWORD"); adminPass != "" {
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPass), bcrypt.DefaultCost)
+		if hashErr != nil {
+			slog.Error("failed to hash admin password", "err", hashErr)
+			os.Exit(1)
+		}
+		username := os.Getenv("TUNNEL_ADMIN_USERNAME")
+		if username == "" {
+			username = "admin"
+		}
+		if saveErr := authStore.Save(&config.WebAuth{
+			Username:     username,
+			PasswordHash: string(hash),
+		}); saveErr != nil {
+			slog.Error("failed to save auth config", "err", saveErr)
+			os.Exit(1)
+		}
+		slog.Info("admin credentials updated from environment")
+	}
+
+	webAuth, authLoadErr := authStore.Load()
+	if authLoadErr != nil {
+		slog.Error("failed to load auth config", "err", authLoadErr)
+		os.Exit(1)
+	}
+	if webAuth != nil {
+		slog.Info("web authentication enabled", "username", webAuth.Username)
+	}
+
 	bus := engine.NewEventBus()
 	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(dataDir, "known_hosts.json"))
 	eng := engine.NewEngine(cfg, bus, hostKeys)
@@ -100,6 +133,7 @@ func main() {
 		LogLevelVar: logLevel,
 		Sampler:     sampler,
 		TrafficDB:   trafficStore,
+		WebAuth:     webAuth,
 	}
 	if uiDir == "" {
 		if uiFS, err := frontendFS(); err == nil {
@@ -108,6 +142,10 @@ func main() {
 	}
 
 	srv := api.NewServer(serverCfg, store, cfg, eng, bus, hostKeys)
+
+	cleanupDone := make(chan struct{})
+	defer close(cleanupDone)
+	srv.StartSessionCleanup(10*time.Minute, cleanupDone)
 
 	// Restore previously enabled tunnels
 	for _, t := range cfg.Tunnels {

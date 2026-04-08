@@ -29,6 +29,7 @@ type ServerConfig struct {
 	LogLevelVar *slog.LevelVar
 	Sampler     TrafficSamplerAPI
 	TrafficDB   TrafficQueryAPI
+	WebAuth     *config.WebAuth // nil = auth not enabled
 }
 
 // TrafficSamplerAPI provides realtime traffic samples.
@@ -75,7 +76,16 @@ func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng en
 		hostKeys: hostKeys,
 		data:     data,
 		router:   r,
+		sessions: NewSessionStore(),
 	}
+
+	if cfg.WebAuth != nil {
+		s.webAuth = &webAuthConfig{
+			Username:     cfg.WebAuth.Username,
+			PasswordHash: cfg.WebAuth.PasswordHash,
+		}
+	}
+
 	s.registerRoutes()
 	return s
 }
@@ -112,6 +122,11 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// StartSessionCleanup starts periodic session cleanup.
+func (s *Server) StartSessionCleanup(interval time.Duration, done <-chan struct{}) {
+	s.sessions.StartCleanup(interval, done)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

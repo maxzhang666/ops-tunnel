@@ -55,6 +55,8 @@ type Server struct {
 	data     *config.Config
 	router   chi.Router
 	http     *http.Server
+	sessions *SessionStore
+	webAuth  *webAuthConfig
 }
 
 // NewServer creates an API server with the given config store.

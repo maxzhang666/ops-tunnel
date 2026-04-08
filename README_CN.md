@@ -1,27 +1,34 @@
 # OpsTunnel
 
-跨平台 SSH 隧道管理器，支持桌面应用、Web UI 和 Docker 部署。
+跨平台 SSH 隧道管理器，通过可视化界面创建、监控和自动重连 SSH 隧道 — 支持桌面应用、Web UI 和 Docker 部署。
 
-管理 SSH 连接，通过多跳 SSH 链创建 Local (-L) / Remote (-R) / Dynamic SOCKS5 (-D) 隧道，实时监控与自动重连。
+## 截图
+
+<!-- TODO: 添加截图 -->
+
+![仪表盘](docs/screenshots/dashboard.png)
+
+![隧道管理](docs/screenshots/tunnels.png)
+
+![SSH 连接](docs/screenshots/ssh-connections.png)
 
 ## 功能特性
 
-- **SSH 连接管理** - 创建、测试、复用 SSH 连接
-- **多跳 SSH 链** - 支持多台跳板机串联，拖拽排序
-- **三种隧道模式** - 本地转发 (-L)、远程转发 (-R)、动态 SOCKS5 代理 (-D，支持 CONNECT + BIND)
-- **自动重连** - 指数退避重试、速率限制、优雅停止
-- **桌面应用** - 原生窗口 + 系统托盘（彩色图标、隧道菜单、一键复制地址）
-- **Web UI** - 类 APP 界面，浏览器直接访问
-- **Docker** - 多阶段构建 distroless 镜像，一键部署
-- **实时监控** - WebSocket 驱动的状态更新和日志流
-- **设置中心** - 主题切换（浅色/深色/跟随系统）、日志级别、版本检查
-- **API 安全** - Bearer Token 认证、CORS、请求体大小限制
+- **多跳隧道链** — 通过一台或多台跳板机访问内网数据库、API 或其他服务
+- **SOCKS5 代理** — 通过动态隧道浏览内网，支持用户名密码认证和 IP 黑白名单
+- **三种隧道模式** — 本地转发 (-L)、远程转发 (-R)、动态 SOCKS5 (-D)
+- **自动重连** — 连接断开后自动恢复，支持配置重试策略
+- **流量仪表盘** — 实时带宽图表、各隧道流量统计、连接数监控
+- **Web 认证** — Server/Docker 部署支持登录页面和会话 cookie；API 访问支持 Bearer Token
+- **桌面应用** — 原生窗口 + 系统托盘图标，一眼查看隧道状态
+- **Docker 部署** — 一条命令启动，数据持久化
+- **多语言** — 支持英文和简体中文
 
-## 快速开始
+## 安装
 
 ### 桌面应用
 
-从 [Releases](https://github.com/maxzhang666/ops-tunnel/releases) 下载最新版本并运行。
+从 [Releases](https://github.com/maxzhang666/ops-tunnel/releases) 下载适合你平台的最新版本。
 
 ### Docker
 
@@ -29,10 +36,11 @@
 docker run -d --name ops-tunnel \
   -p 9876:9876 \
   -v tunnel-data:/data \
+  -e TUNNEL_ADMIN_PASSWORD=your-password \
   ghcr.io/maxzhang666/ops-tunnel:latest
 ```
 
-打开 http://localhost:9876
+打开 http://localhost:9876 ，使用用户名 `admin` 和设置的密码登录。
 
 ### Docker Compose
 
@@ -47,71 +55,20 @@ docker compose up -d
 ./tunnel-server --listen 127.0.0.1:9876 --data-dir ./data
 ```
 
-环境变量：`TUNNEL_LISTEN`、`TUNNEL_DATA_DIR`、`TUNNEL_TOKEN`
+## 配置
 
-## 开发
+所有选项均可通过命令行参数或环境变量设置。未显式指定参数时，环境变量生效。
 
-```bash
-# 环境要求：Go 1.26+、Node 22+、pnpm
+| 环境变量 | 命令行参数 | 默认值 | 说明 |
+|---------|-----------|-------|------|
+| `TUNNEL_LISTEN` | `--listen` | `127.0.0.1:9876` | HTTP 监听地址 |
+| `TUNNEL_DATA_DIR` | `--data-dir` | `./data` | 配置、认证和流量数据目录 |
+| `TUNNEL_UI_DIR` | `--ui-dir` | (内嵌) | 静态 UI 文件路径（覆盖内嵌 UI） |
+| `TUNNEL_TOKEN` | `--token` | (无) | API 访问的 Bearer Token |
+| `TUNNEL_ADMIN_PASSWORD` | — | (无) | Web UI 管理员密码，不设置则无需登录 |
+| `TUNNEL_ADMIN_USERNAME` | — | `admin` | 管理员用户名（配合 `TUNNEL_ADMIN_PASSWORD` 使用） |
 
-# 安装前端依赖
-make install-ui
-
-# 启动开发模式（服务器 + 前端）
-make dev
-
-# 启动桌面应用
-make dev-desktop
-
-# 构建
-make build                       # 服务器 + 前端
-VERSION=1.0.0 make build-desktop # 带版本号的桌面应用
-```
-
-## 技术栈
-
-| 组件 | 技术 |
-|------|------|
-| 后端 | Go 1.26, chi/v5, golang.org/x/crypto/ssh |
-| 前端 | React 19, TypeScript, Vite, Tailwind 4, shadcn/ui |
-| 桌面 | Wails v2, fyne.io/systray |
-| 状态管理 | TanStack Query v5, WebSocket |
-| CI/CD | GitHub Actions, GHCR, Docker 多阶段构建 |
-
-## 项目结构
-
-```
-cmd/
-  tunnel-server/    无头 HTTP+WS API 服务器
-  tunnel-desktop/   Wails 桌面应用（含系统托盘）
-internal/
-  config/           数据模型、校验、文件持久化
-  ssh/              SSH 认证、主机密钥、链式连接、心跳
-  engine/           隧道监管器、退避重试、事件总线
-  forward/          本地/远程/动态转发器实现
-  api/              HTTP API、WebSocket、中间件
-ui/                 React 单页应用
-```
-
-## API
-
-默认端口：`9876`
-
-```
-GET    /healthz
-GET    /ws                                WebSocket 事件流
-
-/api/v1:
-  GET/POST       /ssh-connections          SSH 连接 CRUD
-  GET/PUT/PATCH/DELETE /ssh-connections/{id}
-  POST           /ssh-connections/{id}/test 测试连接
-  GET/POST       /tunnels                  隧道 CRUD
-  GET/PUT/PATCH/DELETE /tunnels/{id}
-  POST           /tunnels/{id}/start|stop|restart 控制
-  GET            /tunnels/{id}/status       状态查询
-  GET/PATCH      /settings                 设置
-  GET            /version                  版本信息
-```
+未设置 `TUNNEL_ADMIN_PASSWORD` 时，Web UI 无需认证即可访问。
 
 ## 许可证
 

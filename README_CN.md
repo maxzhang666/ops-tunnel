@@ -10,6 +10,8 @@
 
 ![隧道管理](docs/screenshots/tunnels.png)
 
+![隧道信息](docs/screenshots/tunnel-info.png)
+
 ![SSH 连接](docs/screenshots/ssh-connections.png)
 
 ## 功能特性

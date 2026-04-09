@@ -10,6 +10,8 @@ A cross-platform SSH tunnel manager that lets you create, monitor, and auto-reco
 
 ![Tunnels](docs/screenshots/tunnels.png)
 
+![TunnelInfo](docs/screenshots/tunnel-info.png)
+
 ![SSH Connections](docs/screenshots/ssh-connections.png)
 
 ## Features

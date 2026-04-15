@@ -21,9 +21,12 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col rounded-l-xl border-r bg-background">
-      <div className="px-4 py-5">
-        <h1 className="text-lg font-bold">{t('sidebar.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('sidebar.subtitle')}</p>
+      <div className="flex items-center gap-3 px-4 py-5">
+        <img src="/favicon.svg" alt="OpsTunnel" className="h-8 w-8 shrink-0 rounded-lg" />
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold leading-tight">{t('sidebar.title')}</h1>
+          <p className="text-xs text-muted-foreground">{t('sidebar.subtitle')}</p>
+        </div>
       </div>
       <Separator />
       <nav className="flex-1 space-y-1 px-2 py-3">

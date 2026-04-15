@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
+	"time"
 
 	"fyne.io/systray"
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -21,7 +23,7 @@ func initTray(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Conf
 }
 
 func onTrayReady(app *App, eng engine.Engine, bus engine.EventBus, cfg *config.Config) {
-	systray.SetIcon(iconGray)
+	systray.SetIcon(iconGray) // initial icon before first status check
 	systray.SetTitle("OpsTunnel")
 	systray.SetTooltip(T("tray.tooltip"))
 
@@ -57,7 +59,7 @@ func buildTrayMenu(app *App, eng engine.Engine, cfg *config.Config) {
 	statuses := eng.ListStatus()
 	running, total := countRunning(statuses), len(statuses)
 
-	systray.SetIcon(computeIcon(statuses))
+	applyTrayIcon(computeIconState(statuses))
 	systray.SetTooltip(fmt.Sprintf("OpsTunnel — %d/%d Running", running, total))
 
 	mTitle := systray.AddMenuItem(fmt.Sprintf("OpsTunnel — %d/%d Running", running, total), "")
@@ -152,7 +154,7 @@ func refreshTrayStatus(eng engine.Engine, cfg *config.Config) {
 	statuses := eng.ListStatus()
 	running, total := countRunning(statuses), len(statuses)
 
-	systray.SetIcon(computeIcon(statuses))
+	applyTrayIcon(computeIconState(statuses))
 	systray.SetTooltip(fmt.Sprintf("OpsTunnel — %d/%d Running", running, total))
 
 	for i, ti := range trayItems {
@@ -201,28 +203,81 @@ func copyToClipboard(app *App, text string) {
 	}
 }
 
-func computeIcon(statuses []engine.TunnelStatus) []byte {
-	hasRunning, hasStopped, hasError := false, false, false
+// trayIconState represents the desired tray icon appearance.
+type trayIconState int
+
+const (
+	trayStateGray   trayIconState = iota // all stopped
+	trayStateYellow                      // running normally
+	trayStateBlink                       // error / degraded / retrying
+)
+
+func computeIconState(statuses []engine.TunnelStatus) trayIconState {
+	hasRunning, hasError := false, false
 	for _, s := range statuses {
 		switch s.State {
 		case engine.StateRunning:
 			hasRunning = true
 		case engine.StateError, engine.StateDegraded:
 			hasError = true
-		default:
-			hasStopped = true
 		}
 	}
 	if hasError {
-		return iconRed
-	}
-	if hasRunning && hasStopped {
-		return iconBlue
+		return trayStateBlink
 	}
 	if hasRunning {
-		return iconGreen
+		return trayStateYellow
 	}
-	return iconGray
+	return trayStateGray
+}
+
+// blinker manages the tray icon blink animation.
+var blinker struct {
+	mu      sync.Mutex
+	active  bool
+	stopCh  chan struct{}
+}
+
+func applyTrayIcon(state trayIconState) {
+	blinker.mu.Lock()
+	defer blinker.mu.Unlock()
+
+	// Stop any existing blink.
+	if blinker.active {
+		close(blinker.stopCh)
+		blinker.active = false
+	}
+
+	switch state {
+	case trayStateBlink:
+		blinker.stopCh = make(chan struct{})
+		blinker.active = true
+		go blinkLoop(blinker.stopCh)
+	case trayStateYellow:
+		systray.SetIcon(iconYellow)
+	default:
+		systray.SetIcon(iconGray)
+	}
+}
+
+func blinkLoop(stop <-chan struct{}) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	visible := true
+	systray.SetIcon(iconYellow)
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if visible {
+				systray.SetIcon(iconEmpty)
+			} else {
+				systray.SetIcon(iconYellow)
+			}
+			visible = !visible
+		}
+	}
 }
 
 func countRunning(statuses []engine.TunnelStatus) int {

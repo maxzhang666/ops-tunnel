@@ -1,0 +1,20 @@
+<svg id="win-icon-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="neonWin" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#00FFFF"/>
+                                        <stop offset="100%" stop-color="#FF00FF"/>
+                                    </linearGradient>
+                                    <filter id="glowWin" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur1"/>
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur2"/> <!-- Win系统允许稍大一点的光晕 -->
+                                        <feMerge>
+                                            <feMergeNode in="blur2"/>
+                                            <feMergeNode in="blur1"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <path d="M 20 5 L 10 18 L 15 18 L 12 27 L 22 14 L 17 14 Z" fill="none" stroke="url(#neonWin)" stroke-width="2" stroke-linejoin="round" filter="url(#glowWin)" opacity="0.9"/>
+                                <path d="M 20 5 L 10 18 L 15 18 L 12 27 L 22 14 L 17 14 Z" fill="url(#neonWin)" filter="url(#glowWin)" opacity="1"/>
+                                <path d="M 20 5 L 10 18 L 15 18 L 12 27 L 22 14 L 17 14 Z" fill="#FFFFFF"/>
+                            </svg>

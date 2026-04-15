@@ -35,9 +35,12 @@ export default function LoginPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-muted/40">
       <div className="w-full max-w-sm space-y-6 rounded-xl border bg-background p-8 shadow-xl">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">OpsTunnel</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('auth.loginSubtitle')}</p>
+        <div className="flex flex-col items-center gap-3">
+          <img src="/favicon.svg" alt="OpsTunnel" className="h-16 w-16 rounded-xl" />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">OpsTunnel</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t('auth.loginSubtitle')}</p>
+          </div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

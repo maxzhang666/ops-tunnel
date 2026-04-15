@@ -35,10 +35,10 @@
                         <g transform="translate(0, 0)">
                             <!-- 外层强散发光 (Stroke) -->
                             <path d="M 620 160 L 320 560 L 500 560 L 380 860 L 710 420 L 530 420 Z" fill="none" stroke="url(#neonMain)" stroke-width="30" stroke-linejoin="round" filter="url(#glowMain)" opacity="0.8"/>
-
+                            
                             <!-- 内层霓虹本体颜色 -->
                             <path d="M 620 160 L 320 560 L 500 560 L 380 860 L 710 420 L 530 420 Z" fill="url(#neonMain)" filter="url(#glowMain)" opacity="1"/>
-
+                            
                             <!-- 绝对高温白/青色核心 (展现极度尖锐) -->
                             <path d="M 620 160 L 320 560 L 500 560 L 380 860 L 710 420 L 530 420 Z" fill="#F4FFFF" opacity="0.95"/>
                         </g>

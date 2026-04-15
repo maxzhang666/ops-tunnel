@@ -33,8 +33,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-muted/40">
-      <div className="w-full max-w-sm space-y-6 rounded-xl border bg-background p-8 shadow-xl">
+    <div className="relative flex h-screen items-center justify-center overflow-hidden bg-muted/40">
+      {/* Cyan ambient — top-left */}
+      <div className="pointer-events-none absolute -left-[10%] -top-[10%] h-[50vw] w-[50vw] rounded-full bg-primary opacity-[0.06] blur-[150px] dark:opacity-[0.12]" />
+      {/* Amber ambient — bottom-right */}
+      <div className="pointer-events-none absolute -bottom-[10%] -right-[10%] h-[40vw] w-[40vw] rounded-full bg-secondary opacity-[0.04] blur-[120px] dark:opacity-[0.08]" />
+      <div className="cyber-bg-dots pointer-events-none absolute inset-0" />
+      <div className="relative z-10 w-full max-w-sm space-y-6 rounded-xl border bg-background/85 p-8 shadow-xl backdrop-blur-xl">
         <div className="flex flex-col items-center gap-3">
           <img src="/favicon.svg" alt="OpsTunnel" className="h-16 w-16 rounded-xl" />
           <div className="text-center">

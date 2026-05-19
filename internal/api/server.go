@@ -30,6 +30,7 @@ type ServerConfig struct {
 	Sampler     TrafficSamplerAPI
 	TrafficDB   TrafficQueryAPI
 	WebAuth     *config.WebAuth // nil = auth not enabled
+	Sessions    *SessionStore   // nil = use in-memory store (default)
 }
 
 // TrafficSamplerAPI provides realtime traffic samples.
@@ -68,6 +69,11 @@ func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng en
 	r.Use(middleware.Recoverer)
 	r.Use(CORS)
 
+	sessions := cfg.Sessions
+	if sessions == nil {
+		sessions = NewSessionStore()
+	}
+
 	s := &Server{
 		cfg:      cfg,
 		store:    store,
@@ -76,7 +82,7 @@ func NewServer(cfg ServerConfig, store config.Store, data *config.Config, eng en
 		hostKeys: hostKeys,
 		data:     data,
 		router:   r,
-		sessions: NewSessionStore(),
+		sessions: sessions,
 	}
 
 	if cfg.WebAuth != nil {

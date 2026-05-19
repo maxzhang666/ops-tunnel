@@ -129,6 +129,12 @@ func main() {
 	defer samplerCancel()
 	go sampler.Run(samplerCtx)
 
+	sessionStore, sessErr := api.NewFileSessionStore(filepath.Join(dataDir, "sessions.json"))
+	if sessErr != nil {
+		slog.Warn("failed to load persisted sessions, falling back to in-memory", "err", sessErr)
+		sessionStore = api.NewSessionStore()
+	}
+
 	serverCfg := api.ServerConfig{
 		ListenAddr:  listen,
 		UIDir:       uiDir,
@@ -139,6 +145,7 @@ func main() {
 		Sampler:     sampler,
 		TrafficDB:   trafficStore,
 		WebAuth:     webAuth,
+		Sessions:    sessionStore,
 	}
 	if uiDir == "" {
 		if uiFS, err := frontendFS(); err == nil {

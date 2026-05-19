@@ -21,9 +21,9 @@ export function AppLayout() {
       <div className="relative flex h-screen">
         <div className="cyber-bg-dots pointer-events-none absolute inset-0 z-0" />
         <Sidebar />
-        <main className="relative z-10 flex-1 overflow-y-auto overscroll-none bg-gradient-to-br from-background via-muted/20 to-muted/40 p-8">
+        <main className="relative z-10 flex-1 overflow-hidden bg-gradient-to-br from-background via-muted/20 to-muted/40">
           <AmbientGlow />
-          <div className="relative z-10">
+          <div className="relative z-10 h-full overflow-y-auto overscroll-none p-8">
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>
@@ -40,9 +40,9 @@ export function AppLayout() {
       <div className="cyber-bg-dots pointer-events-none absolute inset-0 z-0" />
       <div className="relative z-10 flex h-full w-full max-h-[832px] max-w-[1060px] overflow-hidden rounded-xl border shadow-xl">
         <Sidebar />
-        <main className="relative flex-1 overflow-auto rounded-r-xl bg-gradient-to-br from-background via-muted/20 to-muted/40 p-8">
+        <main className="relative flex-1 overflow-hidden rounded-r-xl bg-gradient-to-br from-background via-muted/20 to-muted/40">
           <AmbientGlow />
-          <div className="relative z-10">
+          <div className="relative z-10 h-full overflow-auto p-8">
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>

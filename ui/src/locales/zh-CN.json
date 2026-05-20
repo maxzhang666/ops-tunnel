@@ -17,7 +17,8 @@
     "noTrafficData": "暂无流量数据",
     "tunnels": "隧道",
     "noTunnels": "尚未配置隧道",
-    "conns": "{{count}} 个连接"
+    "conns": "{{count}} 个连接",
+    "tooltipDeletedTunnel": "已删除"
   },
   "common": {
     "save": "保存",

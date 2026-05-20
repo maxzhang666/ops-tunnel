@@ -17,7 +17,11 @@
     "noTrafficData": "No traffic data yet",
     "tunnels": "Tunnels",
     "noTunnels": "No tunnels configured",
-    "conns": "{{count}} conn(s)"
+    "conns": "{{count}} conn(s)",
+    "tooltipTotal": "Total",
+    "tooltipDownload": "Download",
+    "tooltipUpload": "Upload",
+    "tooltipDeletedTunnel": "deleted"
   },
   "common": {
     "save": "Save",

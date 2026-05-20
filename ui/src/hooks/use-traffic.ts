@@ -1,10 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
-interface TrafficSample {
+export interface TunnelDelta {
+  tunnelId: string
+  bytesIn: number
+  bytesOut: number
+}
+
+export interface TrafficSample {
   ts: string
   bytesIn: number
   bytesOut: number
+  perTunnel?: TunnelDelta[]
 }
 
 interface RealtimeResponse {

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useTunnels, TUNNEL_KEYS } from '@/hooks/use-tunnels'
-import { useRealtimeTraffic } from '@/hooks/use-traffic'
+import { useRealtimeTraffic, type TunnelDelta } from '@/hooks/use-traffic'
 import { useStats } from '@/hooks/use-stats'
 import { useWsEvent } from '@/hooks/use-ws-events'
 import { api } from '@/lib/api'
@@ -108,7 +108,13 @@ export default function DashboardPage() {
     time: new Date(s.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     in: s.bytesIn,
     out: s.bytesOut,
+    perTunnel: s.perTunnel ?? [],
   }))
+
+  // ID -> display name lookup for the tooltip; falls back to "deleted" for tunnels
+  // that disappeared from config since the sample was taken.
+  const tunnelNameMap = new Map<string, string>()
+  tunnels?.forEach((t) => tunnelNameMap.set(t.id, t.name))
 
   return (
     <div className="space-y-2">
@@ -165,9 +171,8 @@ export default function DashboardPage() {
                 <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatRate(v)} width={70} />
                 <Tooltip
-                  formatter={(value, name) => [formatRate(Number(value ?? 0)), name === 'in' ? '↓ Download' : '↑ Upload']}
-                  labelStyle={{ fontSize: 11 }}
-                  contentStyle={{ fontSize: 11 }}
+                  content={<ChartTooltip tunnelNameMap={tunnelNameMap} />}
+                  cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeOpacity: 0.3 }}
                 />
                 <Area type="monotone" dataKey="in" stroke="#3b82f6" fill="url(#colorIn)" strokeWidth={1.5} isAnimationActive={false} />
                 <Area type="monotone" dataKey="out" stroke="#22c55e" fill="url(#colorOut)" strokeWidth={1.5} isAnimationActive={false} />
@@ -195,6 +200,65 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+interface ChartTooltipPayload {
+  time: string
+  in: number
+  out: number
+  perTunnel: TunnelDelta[]
+}
+
+interface ChartTooltipProps {
+  active?: boolean
+  payload?: Array<{ payload: ChartTooltipPayload }>
+  tunnelNameMap: Map<string, string>
+}
+
+function ChartTooltip({ active, payload, tunnelNameMap }: ChartTooltipProps) {
+  const { t } = useTranslation()
+  if (!active || !payload?.length) return null
+  const data = payload[0].payload
+  // Sort by total traffic desc so the heaviest contributor stays at the top.
+  const breakdown = [...data.perTunnel].sort(
+    (a, b) => (b.bytesIn + b.bytesOut) - (a.bytesIn + a.bytesOut),
+  )
+
+  return (
+    <div className="rounded-lg border bg-popover/95 px-3 py-2 text-xs shadow-md backdrop-blur">
+      <div className="font-medium">{data.time}</div>
+      <div className="mt-1 flex items-center gap-3">
+        <span className="text-blue-600">↓ {formatRate(data.in)}</span>
+        <span className="text-emerald-600">↑ {formatRate(data.out)}</span>
+      </div>
+      {breakdown.length > 0 && (
+        <>
+          <div className="my-1.5 border-t" />
+          <ul className="space-y-1">
+            {breakdown.map((d) => {
+              const name = tunnelNameMap.get(d.tunnelId)
+              return (
+                <li key={d.tunnelId}>
+                  <div className="font-medium">
+                    {name ?? (
+                      <span className="text-muted-foreground">
+                        {d.tunnelId.slice(0, 8)} <em>({t('dashboard.tooltipDeletedTunnel')})</em>
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground">
+                    <span className="text-blue-600">↓ {formatRate(d.bytesIn)}</span>
+                    <span className="mx-2">·</span>
+                    <span className="text-emerald-600">↑ {formatRate(d.bytesOut)}</span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </div>
   )
 }

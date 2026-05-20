@@ -12,10 +12,22 @@ const (
 )
 
 // TrafficSample represents a single bandwidth sample.
+//
+// BytesIn / BytesOut are the totals across all tunnels for this 1-second window.
+// PerTunnel breaks the same window down by tunnel; tunnels with zero delta
+// are omitted to keep the payload small.
 type TrafficSample struct {
-	TS       time.Time `json:"ts"`
-	BytesIn  int64     `json:"bytesIn"`
-	BytesOut int64     `json:"bytesOut"`
+	TS        time.Time     `json:"ts"`
+	BytesIn   int64         `json:"bytesIn"`
+	BytesOut  int64         `json:"bytesOut"`
+	PerTunnel []TunnelDelta `json:"perTunnel,omitempty"`
+}
+
+// TunnelDelta is the per-tunnel contribution to a TrafficSample window.
+type TunnelDelta struct {
+	TunnelID string `json:"tunnelId"`
+	BytesIn  int64  `json:"bytesIn"`
+	BytesOut int64  `json:"bytesOut"`
 }
 
 // TrafficRecorder persists aggregated traffic data.
@@ -70,39 +82,43 @@ func (s *TrafficSampler) Run(ctx context.Context) {
 func (s *TrafficSampler) sample() {
 	statuses := s.eng.ListStatus()
 
-	var totalIn, totalOut int64
-	curr := make(map[string][2]int64, len(statuses))
-	for _, st := range statuses {
-		curr[st.ID] = [2]int64{st.BytesIn, st.BytesOut}
-		totalIn += st.BytesIn
-		totalOut += st.BytesOut
-	}
-
-	var prevTotalIn, prevTotalOut int64
-	for _, v := range s.prev {
-		prevTotalIn += v[0]
-		prevTotalOut += v[1]
-	}
-	deltaIn := totalIn - prevTotalIn
-	deltaOut := totalOut - prevTotalOut
-	if deltaIn < 0 {
-		deltaIn = totalIn
-	}
-	if deltaOut < 0 {
-		deltaOut = totalOut
-	}
-
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	curr := make(map[string][2]int64, len(statuses))
+	perTunnel := make([]TunnelDelta, 0, len(statuses))
+	var deltaIn, deltaOut int64
+
+	for _, st := range statuses {
+		bi, bo := st.BytesIn, st.BytesOut
+		curr[st.ID] = [2]int64{bi, bo}
+		p := s.prev[st.ID]
+		dIn := bi - p[0]
+		dOut := bo - p[1]
+		// Counter reset (process/tunnel restart): treat current value as the delta.
+		if dIn < 0 {
+			dIn = bi
+		}
+		if dOut < 0 {
+			dOut = bo
+		}
+		deltaIn += dIn
+		deltaOut += dOut
+		if dIn > 0 || dOut > 0 {
+			perTunnel = append(perTunnel, TunnelDelta{TunnelID: st.ID, BytesIn: dIn, BytesOut: dOut})
+		}
+	}
+
 	s.prev = curr
 	s.samples = append(s.samples, TrafficSample{
-		TS:       time.Now().UTC(),
-		BytesIn:  deltaIn,
-		BytesOut: deltaOut,
+		TS:        time.Now().UTC(),
+		BytesIn:   deltaIn,
+		BytesOut:  deltaOut,
+		PerTunnel: perTunnel,
 	})
 	if len(s.samples) > realtimeSamplesCap {
 		s.samples = s.samples[len(s.samples)-realtimeSamplesCap:]
 	}
-	s.mu.Unlock()
 }
 
 func (s *TrafficSampler) flush() {

@@ -32,6 +32,12 @@ GET    /ws                                   WebSocket event stream
   PATCH  /{id}                               Partial update SSH connection
   DELETE /{id}                               Delete SSH connection
   POST   /{id}/test                          Test saved connection
+  POST   /{id}/reveal                        Reveal stored credentials
+
+/api/v1/host-keys:
+  GET    /                                   List trusted host keys + fingerprints
+  PUT    /                                   Trust a pending host key {hostPort, fingerprint}
+  DELETE /?hostPort=<host:port>              Revoke a trusted host key
 
 /api/v1/tunnels:
   GET    /                                   List all tunnels

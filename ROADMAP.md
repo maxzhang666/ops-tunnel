@@ -506,6 +506,38 @@ WiFiMonitor (goroutine, polls every 5s)
 
 ---
 
+## Phase 36: SSH Host Key Management [DONE]
+
+**Goal:** Make host key rotation recoverable from the UI. A changed server host key previously wedged every connect with an opaque error, with no way to inspect, revoke, or update the trusted key short of hand-editing `data/known_hosts.json`.
+
+**Scope:**
+- `HostKeyStore` gains `Delete` / `List` plus an in-memory "pending" slot for offered-but-untrusted keys
+- `HostKeyVerifier` replaces the bare callback factory, so the offered key survives the failed handshake as structured data (`HostKeyMismatch` / `HostKeyError`)
+- Mismatch detail propagates to `TestResult.HostKey` and `TunnelStatus.HostKey`; supervisor publishes `EventChainError` with both fingerprints
+- UI: fingerprint comparison dialog (trusted vs. offered) on connection test and tunnel error, plus a Known Hosts table in Settings with per-row revoke
+- `strict` mode becomes usable — the dialog registers a key that was never trusted before
+
+**Design considerations:**
+- Trust requires explicit confirmation of the SHA256 fingerprint; no silent re-TOFU, no "always trust" shortcut
+- `PUT` carries only the fingerprint the user confirmed, never key material — the key itself comes from what the server observed on the wire
+- Pending keys are in-memory only, so unconfirmed key material never hits disk
+- Auto-restart is suppressed on mismatch: a changed host key never resolves itself, and retrying buries the cause in backoff noise
+- Store stays keyed by `host:port` with the existing `{"host:port": base64(key)}` format — no migration
+
+**Defects fixed in the same pass:**
+- Unknown/empty verification mode fell through to `InsecureIgnoreHostKey()` — now fails closed, and `ValidateSSHConnection` rejects invalid modes
+- `known_hosts.json` temp file was written `0o644` — now `0o600`
+- `load()` swallowed read and unmarshal errors, silently re-TOFU'ing every host — now surfaces them and fails startup
+
+**API:**
+- `GET /api/v1/host-keys` — list trusted keys with fingerprint and key type
+- `PUT /api/v1/host-keys` — trust a pending key `{hostPort, fingerprint}`
+- `DELETE /api/v1/host-keys?hostPort=<host:port>` — revoke a trusted key (idempotent)
+
+**Estimated effort:** Medium
+
+---
+
 ## Priority Matrix
 
 ### Tier 1 — High Value, Low Effort
@@ -530,6 +562,7 @@ WiFiMonitor (goroutine, polls every 5s)
 | 25 | Prometheus Metrics | Small-Medium |
 | 34 | SSH Host Monitoring | Medium |
 | 35 | WiFi-Based Tunnel Auto-Switch | Medium |
+| 36 | SSH Host Key Management | Medium |
 
 ### Tier 3 — Medium Value, Medium Effort
 | Phase | Feature | Effort |

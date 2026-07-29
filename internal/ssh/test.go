@@ -12,14 +12,15 @@ import (
 
 // TestResult holds the result of a connection test.
 type TestResult struct {
-	OK        bool   `json:"ok"`
-	LatencyMs int64  `json:"latencyMs,omitempty"`
-	Error     string `json:"error,omitempty"`
+	OK        bool             `json:"ok"`
+	LatencyMs int64            `json:"latencyMs,omitempty"`
+	Error     string           `json:"error,omitempty"`
+	HostKey   *HostKeyMismatch `json:"hostKey,omitempty"`
 }
 
 // TestConnection attempts to connect and authenticate to a single SSH server.
 func TestConnection(ctx context.Context, conn config.SSHConnection, hostKeyStore HostKeyStore) TestResult {
-	addr := fmt.Sprintf("%s:%d", conn.Endpoint.Host, conn.Endpoint.Port)
+	addr := HostPort(conn.Endpoint)
 	timeout := time.Duration(conn.DialTimeoutMs) * time.Millisecond
 	if timeout == 0 {
 		timeout = 10 * time.Second
@@ -30,12 +31,12 @@ func TestConnection(ctx context.Context, conn config.SSHConnection, hostKeyStore
 		return TestResult{Error: fmt.Sprintf("auth config: %s", err)}
 	}
 
-	hkCallback := HostKeyCallback(conn.HostKeyVerification.Mode, hostKeyStore, addr)
+	verifier := NewHostKeyVerifier(conn.HostKeyVerification.Mode, hostKeyStore, addr)
 
 	sshConfig := &gossh.ClientConfig{
 		User:            conn.Auth.Username,
 		Auth:            authMethods,
-		HostKeyCallback: hkCallback,
+		HostKeyCallback: verifier.Callback(),
 		Timeout:         timeout,
 	}
 
@@ -53,6 +54,9 @@ func TestConnection(ctx context.Context, conn config.SSHConnection, hostKeyStore
 	sshConn, chans, reqs, err := gossh.NewClientConn(netConn, addr, sshConfig)
 	if err != nil {
 		netConn.Close()
+		if mm := verifier.Mismatch(); mm != nil {
+			return TestResult{Error: mm.String(), HostKey: mm}
+		}
 		return TestResult{Error: fmt.Sprintf("SSH handshake: %s", err)}
 	}
 

@@ -5,11 +5,12 @@ import { ArrowLeft, Loader2, Pencil, Play, Square, RotateCw } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { HostKeyMismatchDialog } from '@/components/ssh/host-key-mismatch-dialog'
 import { TunnelForm } from './tunnel-form'
 import { useStartTunnel, useStopTunnel, useRestartTunnel, useUpdateTunnel } from '@/hooks/use-tunnels'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { Tunnel, TunnelStatus } from '@/types/api'
+import type { HostKeyMismatch, Tunnel, TunnelStatus } from '@/types/api'
 
 const statusColors: Record<string, string> = {
   running: 'bg-green-500',
@@ -71,6 +72,7 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
   const restartMutation = useRestartTunnel()
   const updateMutation = useUpdateTunnel()
   const [editOpen, setEditOpen] = useState(false)
+  const [mismatch, setMismatch] = useState<HostKeyMismatch | null>(null)
 
   const state = status?.state ?? 'stopped'
   const mode = modeStyles[tunnel.mode] ?? modeStyles.local
@@ -118,8 +120,21 @@ export function DetailHeader({ tunnel, status }: DetailHeaderProps) {
         </div>
       </div>
       {status?.lastError && (state === 'error' || state === 'degraded') && (
-        <div className="ml-11 mt-2 text-sm text-destructive">{status.lastError}</div>
+        <div className="ml-11 mt-2 space-y-1.5">
+          <div className="text-sm text-destructive">{status.lastError}</div>
+          {status.hostKey && (
+            <Button variant="outline" size="sm" onClick={() => setMismatch(status.hostKey ?? null)}>
+              {t('ssh.hostKeyResolveAction')}
+            </Button>
+          )}
+        </div>
       )}
+
+      <HostKeyMismatchDialog
+        mismatch={mismatch}
+        onOpenChange={(open) => !open && setMismatch(null)}
+        onTrusted={() => startMutation.mutate(tunnel.id)}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen} dismissible={false}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">

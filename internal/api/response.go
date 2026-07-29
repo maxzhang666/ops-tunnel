@@ -55,6 +55,12 @@ func writeConflict(w http.ResponseWriter, details []config.ValidationError) {
 	})
 }
 
+// writeConflictCode writes a 409 with a specific error slug. writeConflict
+// always reports "conflict"; some conflicts need to be machine-distinguishable.
+func writeConflictCode(w http.ResponseWriter, code string) {
+	writeJSON(w, http.StatusConflict, ErrorResponse{Error: code})
+}
+
 func writeInternalError(w http.ResponseWriter) {
 	writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 		Error: "internal_error",

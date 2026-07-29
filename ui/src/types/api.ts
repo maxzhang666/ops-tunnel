@@ -26,6 +26,25 @@ export interface HostKeyVerification {
   mode: HostKeyVerifyMode
 }
 
+export type HostKeyMismatchReason = 'changed' | 'unknown'
+
+export interface HostKeyMismatch {
+  sshConnId?: string
+  sshConnName?: string
+  hostPort: string
+  reason: HostKeyMismatchReason
+  storedFingerprint?: string
+  storedKeyType?: string
+  offeredFingerprint: string
+  offeredKeyType: string
+}
+
+export interface KnownHost {
+  hostPort: string
+  fingerprint: string
+  keyType: string
+}
+
 export interface KeepAlive {
   intervalMs: number
   maxMissed: number
@@ -112,12 +131,14 @@ export interface TunnelStatus {
   bytesIn: number
   bytesOut: number
   lastError?: string
+  hostKey?: HostKeyMismatch
 }
 
 export interface TestResult {
   status: 'ok' | 'error'
   message: string
   latencyMs?: number
+  hostKey?: HostKeyMismatch
 }
 
 export interface TunnelEvent {

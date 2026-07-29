@@ -49,6 +49,13 @@ func ValidateSSHConnection(c *SSHConnection, prefix string) *ValidationResult {
 		r.addError(p+"endpoint.port", "must be between 1 and 65535")
 	}
 
+	switch c.HostKeyVerification.Mode {
+	case "", HostKeyInsecure, HostKeyAcceptNew, HostKeyStrict:
+		// empty is normalised to acceptNew by ApplySSHConnectionDefaults
+	default:
+		r.addError(p+"hostKeyVerification.mode", "must be 'insecure', 'acceptNew', or 'strict'")
+	}
+
 	switch c.Auth.Type {
 	case AuthPassword:
 		if c.Auth.Username == "" {

@@ -42,6 +42,12 @@ func (s *Server) registerRoutes() {
 			r.Post("/{id}/reveal", s.revealSSHConnection)
 		})
 
+		r.Route("/host-keys", func(r chi.Router) {
+			r.Get("/", s.listKnownHosts)
+			r.Put("/", s.trustHostKey)
+			r.Delete("/", s.revokeHostKey)
+		})
+
 		r.Route("/tunnels", func(r chi.Router) {
 			r.Get("/", s.listTunnels)
 			r.Post("/", s.createTunnel)

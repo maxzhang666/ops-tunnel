@@ -1,12 +1,14 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Pencil, Power, PowerOff, RotateCw, Timer, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { HostKeyMismatchDialog } from '@/components/ssh/host-key-mismatch-dialog'
 import { useSSHConnections } from '@/hooks/use-ssh-connections'
 import { useStartTunnel, useStopTunnel, useRestartTunnel } from '@/hooks/use-tunnels'
 import { cn } from '@/lib/utils'
-import type { Tunnel, TunnelStatus } from '@/types/api'
+import type { HostKeyMismatch, Tunnel, TunnelStatus } from '@/types/api'
 
 const statusColors: Record<string, string> = {
   running: 'bg-green-500',
@@ -60,6 +62,8 @@ export function TunnelCard({ tunnel, status, onEdit, onDelete }: TunnelCardProps
   const startMutation = useStartTunnel()
   const stopMutation = useStopTunnel()
   const restartMutation = useRestartTunnel()
+
+  const [mismatch, setMismatch] = useState<HostKeyMismatch | null>(null)
 
   const state = status?.state ?? 'stopped'
   const mode = modeStyles[tunnel.mode] ?? modeStyles.local
@@ -117,7 +121,22 @@ export function TunnelCard({ tunnel, status, onEdit, onDelete }: TunnelCardProps
             ))}
           </div>
           {status?.lastError && (state === 'error' || state === 'degraded') && (
-            <div className="mt-2 text-xs text-destructive">{status.lastError}</div>
+            <div className="mt-2 space-y-1">
+              <div className="text-xs text-destructive">{status.lastError}</div>
+              {status.hostKey && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMismatch(status.hostKey ?? null)
+                  }}
+                >
+                  {t('ssh.hostKeyResolveAction')}
+                </Button>
+              )}
+            </div>
           )}
         </div>
         <div className="ml-4 flex flex-shrink-0 items-center gap-1.5">
@@ -160,6 +179,12 @@ export function TunnelCard({ tunnel, status, onEdit, onDelete }: TunnelCardProps
           </Button>
         </div>
       </div>
+
+      <HostKeyMismatchDialog
+        mismatch={mismatch}
+        onOpenChange={(open) => !open && setMismatch(null)}
+        onTrusted={() => startMutation.mutate(tunnel.id)}
+      />
     </div>
   )
 }

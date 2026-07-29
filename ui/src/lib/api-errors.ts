@@ -1,4 +1,5 @@
 import i18n from '@/lib/i18n'
+import type { ApiErrorBody } from '@/types/api'
 
 const VALIDATION_MAP: Record<string, string> = {
   'must not be empty': 'validation.mustNotBeEmpty',
@@ -10,6 +11,7 @@ const VALIDATION_MAP: Record<string, string> = {
   'must not be empty for file source': 'validation.mustNotBeEmptyForFileSource',
   "must be 'inline' or 'file'": 'validation.mustBeInlineOrFile',
   "must be 'password', 'privateKey', or 'none'": 'validation.mustBePasswordPrivateKeyOrNone',
+  "must be 'insecure', 'acceptNew', or 'strict'": 'validation.mustBeInsecureAcceptNewOrStrict',
   'must be provided for dynamic mode': 'validation.mustBeProvidedForDynamicMode',
   'must not be empty for userpass auth': 'validation.mustNotBeEmptyForUserpassAuth',
   "must be 'none' or 'userpass'": 'validation.mustBeNoneOrUserpass',
@@ -49,4 +51,26 @@ export function translateValidationErrors(
     field: d.field,
     message: translateValidationMessage(d.message),
   }))
+}
+
+const ERROR_SLUG_MAP: Record<string, string> = {
+  no_pending_host_key: 'ssh.hostKeyErrorNoPending',
+  fingerprint_mismatch: 'ssh.hostKeyErrorFingerprintMismatch',
+}
+
+/**
+ * Translates an API error envelope: a mapped `error` slug wins, otherwise the
+ * validation details carry the detail, and the raw slug is the last resort.
+ */
+export function translateApiError(body: ApiErrorBody): string {
+  const key = ERROR_SLUG_MAP[body.error]
+  if (key) return i18n.t(key)
+
+  if (body.details?.length) {
+    return translateValidationErrors(body.details)
+      .map((d) => d.message)
+      .join(', ')
+  }
+
+  return body.error
 }

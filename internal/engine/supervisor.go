@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -19,12 +20,13 @@ type tunnelSupervisor struct {
 	bus      EventBus
 	hostKeys tunnelssh.HostKeyStore
 
-	mu       sync.RWMutex
-	state    TunnelState
-	since    time.Time
-	lastErr  string
-	chain    *tunnelssh.ChainResult
-	fwds     []forward.Forwarder
+	mu              sync.RWMutex
+	state           TunnelState
+	since           time.Time
+	lastErr         string
+	hostKeyMismatch *tunnelssh.HostKeyMismatch
+	chain           *tunnelssh.ChainResult
+	fwds            []forward.Forwarder
 
 	cumBytesIn  atomic.Int64 // cumulative bytes across forwarder restarts
 	cumBytesOut atomic.Int64
@@ -115,10 +117,39 @@ func (s *tunnelSupervisor) runLoop() {
 				s.mu.Unlock()
 				return
 			}
+			var hkErr *tunnelssh.HostKeyError
+			isHostKey := errors.As(err, &hkErr)
+
 			s.mu.Lock()
 			s.lastErr = err.Error()
+			if isHostKey {
+				s.hostKeyMismatch = hkErr.Mismatch
+			} else {
+				s.hostKeyMismatch = nil
+			}
 			s.setState(StateError)
 			s.mu.Unlock()
+
+			if isHostKey {
+				mm := hkErr.Mismatch
+				s.bus.Publish(Event{
+					Type:     EventChainError,
+					TunnelID: s.tunnel.ID,
+					Level:    "error",
+					Message:  err.Error(),
+					Fields: map[string]any{
+						"sshConnId":          mm.SSHConnID,
+						"hostPort":           mm.HostPort,
+						"reason":             mm.Reason,
+						"storedFingerprint":  mm.StoredFP,
+						"offeredFingerprint": mm.OfferedFP,
+						"offeredKeyType":     mm.OfferedType,
+					},
+				})
+				// A changed host key never resolves itself. Retrying would loop
+				// until the rate limit fires and bury the real cause.
+				return
+			}
 
 			s.publishLog("error", fmt.Sprintf("chain failed: %s", err))
 
@@ -156,6 +187,7 @@ func (s *tunnelSupervisor) runLoop() {
 		if err != nil {
 			s.mu.Lock()
 			s.lastErr = err.Error()
+			s.hostKeyMismatch = nil
 			s.chain = nil
 			s.setState(StateError)
 			s.mu.Unlock()
@@ -190,6 +222,7 @@ func (s *tunnelSupervisor) runLoop() {
 		s.mu.Lock()
 		s.fwds = fwds
 		s.lastErr = ""
+		s.hostKeyMismatch = nil
 		s.restartCount = 0
 		s.setState(StateRunning)
 		s.mu.Unlock()
@@ -433,6 +466,7 @@ func (s *tunnelSupervisor) Status() TunnelStatus {
 		Chain:     chain,
 		Mappings:  mappings,
 		LastError: s.lastErr,
+		HostKey:   s.hostKeyMismatch,
 	}
 }
 

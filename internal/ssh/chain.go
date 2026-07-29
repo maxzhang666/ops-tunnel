@@ -54,7 +54,7 @@ func BuildChain(ctx context.Context, conns []config.SSHConnection, hostKeyStore 
 	var prevClient *gossh.Client
 
 	for i, conn := range conns {
-		addr := fmt.Sprintf("%s:%d", conn.Endpoint.Host, conn.Endpoint.Port)
+		addr := HostPort(conn.Endpoint)
 		timeout := time.Duration(conn.DialTimeoutMs) * time.Millisecond
 		if timeout == 0 {
 			timeout = 10 * time.Second
@@ -68,12 +68,12 @@ func BuildChain(ctx context.Context, conns []config.SSHConnection, hostKeyStore 
 			return nil, fmt.Errorf("hop %d (%s): auth config error: %w", i+1, conn.Name, err)
 		}
 
-		hkCallback := HostKeyCallback(conn.HostKeyVerification.Mode, hostKeyStore, addr)
+		verifier := NewHostKeyVerifier(conn.HostKeyVerification.Mode, hostKeyStore, addr)
 
 		sshConfig := &gossh.ClientConfig{
 			User:            conn.Auth.Username,
 			Auth:            authMethods,
-			HostKeyCallback: hkCallback,
+			HostKeyCallback: verifier.Callback(),
 			Timeout:         timeout,
 		}
 
@@ -95,6 +95,11 @@ func BuildChain(ctx context.Context, conns []config.SSHConnection, hostKeyStore 
 		if err != nil {
 			netConn.Close()
 			result.Close()
+			if mm := verifier.Mismatch(); mm != nil {
+				mm.SSHConnID = conn.ID
+				mm.SSHConnName = conn.Name
+				return nil, &HostKeyError{Hop: i + 1, Mismatch: mm}
+			}
 			return nil, fmt.Errorf("hop %d (%s): SSH handshake failed: %w", i+1, conn.Name, err)
 		}
 

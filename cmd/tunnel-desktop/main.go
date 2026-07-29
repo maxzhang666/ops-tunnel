@@ -53,7 +53,11 @@ func main() {
 	}
 
 	bus := engine.NewEventBus()
-	hostKeys := tunnelssh.NewJSONHostKeyStore(filepath.Join(*dataDir, "known_hosts.json"))
+	hostKeys, err := tunnelssh.NewJSONHostKeyStore(filepath.Join(*dataDir, "known_hosts.json"))
+	if err != nil {
+		slog.Error("failed to load known hosts", "err", err)
+		os.Exit(1)
+	}
 	eng := engine.NewEngine(cfg, bus, hostKeys)
 
 	trafficStore, err := traffic.NewStore(filepath.Join(*dataDir, "traffic.db"))

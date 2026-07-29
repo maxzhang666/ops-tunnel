@@ -1,6 +1,10 @@
 package engine
 
-import "time"
+import (
+	"time"
+
+	tunnelssh "github.com/maxzhang666/ops-tunnel/internal/ssh"
+)
 
 type TunnelState string
 
@@ -31,12 +35,13 @@ type MappingStatus struct {
 }
 
 type TunnelStatus struct {
-	ID        string          `json:"id"`
-	State     TunnelState     `json:"state"`
-	Since     time.Time       `json:"since"`
-	Chain     []HopStatus     `json:"chain"`
-	Mappings  []MappingStatus `json:"mappings"`
-	BytesIn   int64           `json:"bytesIn"`
-	BytesOut  int64           `json:"bytesOut"`
-	LastError string          `json:"lastError,omitempty"`
+	ID        string                     `json:"id"`
+	State     TunnelState                `json:"state"`
+	Since     time.Time                  `json:"since"`
+	Chain     []HopStatus                `json:"chain"`
+	Mappings  []MappingStatus            `json:"mappings"`
+	BytesIn   int64                      `json:"bytesIn"`
+	BytesOut  int64                      `json:"bytesOut"`
+	LastError string                     `json:"lastError,omitempty"`
+	HostKey   *tunnelssh.HostKeyMismatch `json:"hostKey,omitempty"`
 }

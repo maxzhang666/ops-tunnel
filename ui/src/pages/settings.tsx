@@ -7,6 +7,7 @@ import { GeneralSection } from '@/components/settings/general-section'
 import { AppearanceSection } from '@/components/settings/appearance-section'
 import { DesktopSection } from '@/components/settings/desktop-section'
 import { AboutSection } from '@/components/settings/about-section'
+import { KnownHostsSection } from '@/components/settings/known-hosts-section'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
@@ -43,6 +44,7 @@ export default function SettingsPage() {
 
       <GeneralSection settings={settings} version={version} onUpdate={handleUpdate} />
       <AppearanceSection settings={settings} onUpdate={handleUpdate} />
+      <KnownHostsSection />
       {version?.mode === 'desktop' && (
         <DesktopSection settings={settings} onUpdate={handleUpdate} />
       )}

@@ -206,10 +206,14 @@ func (s *Server) writeTestResult(w http.ResponseWriter, r *http.Request, conn co
 			"latencyMs": result.LatencyMs,
 		})
 	} else {
-		writeJSON(w, http.StatusOK, map[string]any{
+		body := map[string]any{
 			"status":  "error",
 			"message": result.Error,
-		})
+		}
+		if result.HostKey != nil {
+			body["hostKey"] = result.HostKey
+		}
+		writeJSON(w, http.StatusOK, body)
 	}
 }
 

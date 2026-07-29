@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTestSSHConnection, useTestSSHConnectionDirect } from '@/hooks/use-ssh-connections'
-import type { SSHConnection } from '@/types/api'
+import { HostKeyMismatchDialog } from './host-key-mismatch-dialog'
+import type { HostKeyMismatch, SSHConnection, TestResult } from '@/types/api'
 
 interface SSHTestButtonProps {
   id?: string
@@ -15,10 +16,15 @@ export function SSHTestButton({ id, getData }: SSHTestButtonProps) {
   const testById = useTestSSHConnection()
   const testByData = useTestSSHConnectionDirect()
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [mismatch, setMismatch] = useState<HostKeyMismatch | null>(null)
 
   const isPending = testById.isPending || testByData.isPending
 
-  const onResult = (data: { status: string; message: string; latencyMs?: number }) => {
+  const onResult = (data: TestResult) => {
+    if (data.hostKey) {
+      setMismatch(data.hostKey)
+      return
+    }
     setResult({
       ok: data.status === 'ok',
       msg: data.status === 'ok' ? `${data.latencyMs}ms` : data.message,
@@ -55,6 +61,11 @@ export function SSHTestButton({ id, getData }: SSHTestButtonProps) {
           <span className={result.ok ? 'text-green-600' : 'text-destructive'}>{result.msg}</span>
         </span>
       )}
+      <HostKeyMismatchDialog
+        mismatch={mismatch}
+        onOpenChange={(open) => !open && setMismatch(null)}
+        onTrusted={handleTest}
+      />
     </span>
   )
 }
